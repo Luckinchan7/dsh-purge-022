@@ -45,7 +45,7 @@ patchStatus       applied 69 / na 11 / missing_file 1
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/OWNER/REPO/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -105,7 +105,7 @@ On a real Windows 11 box running DeepSeek Harness 0.2.2-rc.1: 36 host files carr
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/OWNER/REPO/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
 ```
 
 ### License

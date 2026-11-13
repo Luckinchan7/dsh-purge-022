@@ -103,7 +103,7 @@
 ```bash
 # 方式一：tarball
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/<you>/<repo>/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.3/dsh-purge-1.1.71-rc2.3.tgz
 
 # 方式二：手动放置（本机没有 dsh CLI 时）
 #   解包到 ~/.dsh/profiles/desktop/node_modules/dsh-purge
