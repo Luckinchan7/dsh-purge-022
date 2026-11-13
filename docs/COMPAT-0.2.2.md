@@ -367,13 +367,13 @@ append(record){const event=record.event;if(this.inputs.has(event.seq))return`non
 
 ## 解包 app.asar 的正确偏移
 
-这是一个踩过的坑，记下来给后来者：
+自己解包宿主 `app.asar` 核对锚点时，注意数据起点的算法：
 
 ```js
 // 正确
 const dataStart = 8 + head.readUInt32LE(4);
 
-// 错误 —— 每个文件会多 3 字节前缀
+// 常见错误写法 —— 每个文件会多 3 字节前缀，全部语法检查失败
 const dataStart = 16 + head.readUInt32LE(12);
 ```
 
@@ -382,4 +382,4 @@ asar 头部是 `[4 字节 uint32 size][4 字节 uint32 header-size][header JSON]
 - 读 header 长度用 `readUInt32LE(12)`（= 4 + 4 + 4 + 4）
 - 算数据起点用 `8 + readUInt32LE(4)`（= 4 + 4，再加 pickle 里的实际字符串长度）
 
-偏移错 3 字节的症状是：**所有** `node --check` 都报 `SyntaxError: Unexpected token '{'`，因为每个文件首行都多了 `s>\n`。这个症状和「补丁打坏了」极像，容易被误判。
+偏移错 3 字节的症状是：**所有** `node --check` 都报 `SyntaxError: Unexpected token '{'`，因为每个文件首行都多了 `s>\n`。这个症状和「宿主坏了」/「补丁打坏了」极像，容易被误判。**判断方法**：先对未打补丁的原始解包树跑基线检查（1,267 个 JS 应全部 0 失败），基线过了再怀疑补丁层。
