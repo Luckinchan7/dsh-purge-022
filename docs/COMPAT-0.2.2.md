@@ -1,6 +1,8 @@
-# 0.2.2-rc.1 适配说明
+# 0.2.2 适配说明
 
 面向想弄清「这版到底改了什么、为什么改」的读者。只关心安装的话看 [README](../README.md)。
+
+本文分两部分：前半是 **0.2.2-rc.1** 的适配（rc2.2 / rc2.3），文末「追加」一节是 **0.2.2-rc.3** 的增量（rc2.4）。
 
 ## 这是什么
 
@@ -278,3 +280,106 @@ dsh-harness-dev-context/lib/index.js
 | `#30` `#31` `#56` `#64` `#65` `#71` | 保留原样，在无对应包的宿主上正常显示 `na` |
 
 选择保留而非删除的理由：这些补丁在装了对应包的宿主上仍然有效，删掉等于剥夺用户的选择；`na` 状态在面板上是灰色的，不构成噪音。
+
+
+---
+
+## 追加：0.2.2-rc.3 的四条变更（rc2.4）
+
+rc.3 相对 rc.1 的改动集中在四处，都落在「代码层」补丁的锚点上。rc2.4 的做法是**追加**新锚点而非替换，所以同一份包能同时命中两代宿主。
+
+### #13 `ESCALATION_WIDENING_EXEMPT`
+
+rc.1 是三条 `throw new Error(...)`，rc.3 换成带错误码的 `SandboxEscalationError`：
+
+```js
+// rc.1
+if (!(WIDER_MODES[effectiveMode] ?? []).includes(mode)) throw new Error(`sandbox escalation to "${mode}" is not strictly wider ...`);
+if (approval.approver === void 0) throw new Error(`... requires approval, but no approval service is composed`);
+if (approval.agent === void 0) throw new Error(`... but the call has no agent to route it through`);
+
+// rc.3
+if (!(WIDER_MODES[effectiveMode] ?? []).includes(mode)) throw new SandboxEscalationError(`...`, "SANDBOX_ESCALATION_INVALID_ARGUMENT");
+if (approval.approver === void 0) throw new SandboxEscalationError(`...`, "SANDBOX_ESCALATION_UNAVAILABLE");
+if (approval.agent === void 0) throw new SandboxEscalationError(`...`, "SANDBOX_ESCALATION_UNAVAILABLE");
+```
+
+### #18 `REPEAT_TOOL_REMINDER_DISABLED`
+
+rc.3 删掉了 `downstream.kind === "block"` 那个分支：
+
+```js
+// rc.1
+if (!reminder) return downstream;
+if (downstream.kind === "block") return { kind: "block", feedback: downstream.feedback, additionalContexts: ... };
+return { ...downstream, additionalContexts: ... };
+
+// rc.3
+if (!reminder) return downstream;
+return { ...downstream, additionalContexts: ... };
+```
+
+### #35 `ESCALATION_NEVER_REJECT`
+
+`switch (outcome)` 整段重写：`allowed-once` 之外的三条从 `throw new Error` 换成 `SandboxEscalationError`，`rejected` 的文案补了 `it stays denied, so stop and explain instead of working around it`，`cancelled` 前面多一行 `approval.signal?.throwIfAborted();`。
+
+### #62 `OFFICIAL_TOOL_ASK_FAILOPEN`
+
+`serviceAsk` 的 deny 不再手写对象，改用 `approvalDenial(reason, CODE)`；`case 'unavailable':` 也压成了单行：
+
+```js
+// rc.1
+if (approval === undefined) {
+  return { decision: { kind: 'deny', reason: ask.reason ?? `tool "${exec.name}" requires approval ...` }, approvalCancelled: false };
+}
+case 'unavailable': return {
+  decision: { kind: 'deny', reason: `tool "${exec.name}" requires approval, but no approval channel is available` },
+  approvalCancelled: false,
+};
+
+// rc.3
+if (approval === undefined) {
+  return { decision: approvalDenial(ask.reason ?? `...`, APPROVAL_UNAVAILABLE), approvalCancelled: false };
+}
+case 'unavailable': return {
+  decision: approvalDenial(`...`, APPROVAL_UNAVAILABLE),
+  approvalCancelled: false,
+};
+```
+
+## 退役：#56 / #77（rewind 系列）
+
+rc.3 的 `dsh-client-ui-conversation/lib/client.js` 从 921,756 bytes / 23,145 行变成 **685,459 bytes / 28 行的压缩 bundle**：
+
+```
+append(record){const event=record.event;if(this.inputs.has(event.seq))return`none`;...
+```
+
+`rewindVisibleEntries`、`isRewindMarker`、`sourceEventSeqs`、`cutTurn` 这些标识符**全宿主 0 命中**。
+
+翻源码确认这不是搬家：
+
+- `src/client/locales.ts`（169,310 bytes）里 `回退` 0 次、`撤销` 0 次、`rewind` 0 次
+- `lib/index.js`（1,494 bytes）的导出只剩 `BUSY_ENTER_BEHAVIORS` / `BUSY_ENTER_FIELD` / `CONVERSATION_SETTINGS_NAMESPACE` / `Config` / `apply`
+- 12 个含 `rewind` 字样的文件全是 DevTools / 语法高亮 / 终端，与对话无关
+
+结论：**回退功能已被上游删除**。按 mangle 后的短名重新锚定，下一次压缩换名就静默失效，不如摘掉。
+
+## 解包 app.asar 的正确偏移
+
+这是一个踩过的坑，记下来给后来者：
+
+```js
+// 正确
+const dataStart = 8 + head.readUInt32LE(4);
+
+// 错误 —— 每个文件会多 3 字节前缀
+const dataStart = 16 + head.readUInt32LE(12);
+```
+
+asar 头部是 `[4 字节 uint32 size][4 字节 uint32 header-size][header JSON]`，但 header JSON 本身是一个 Chromium **pickle**：前面还有一层 `[4 字节 payload 长度][4 字节 pickle header]`。所以：
+
+- 读 header 长度用 `readUInt32LE(12)`（= 4 + 4 + 4 + 4）
+- 算数据起点用 `8 + readUInt32LE(4)`（= 4 + 4，再加 pickle 里的实际字符串长度）
+
+偏移错 3 字节的症状是：**所有** `node --check` 都报 `SyntaxError: Unexpected token '{'`，因为每个文件首行都多了 `s>\n`。这个症状和「补丁打坏了」极像，容易被误判。
