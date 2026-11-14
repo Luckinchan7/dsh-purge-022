@@ -1,7 +1,7 @@
-# dsh-purge 1.1.71-rc2.4 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge 1.1.71-rc2.5 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.3-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.1.71--rc2.4-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.4)
+[![version](https://img.shields.io/badge/version-1.1.71--rc2.5-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.4)
 [![patches](https://img.shields.io/badge/patches-67%20applied-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
@@ -22,11 +22,11 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.3** | **本版（rc2.4）** |
-| 0.2.2-rc.1 | rc2.4（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **本版（rc2.5）** |
+| 0.2.2-rc.1 | rc2.5（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.4 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
+rc2.5 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
 
 ### 为什么需要它
 
@@ -79,7 +79,7 @@ tgz 回解包再跑 apply              结果一致，打包无丢失
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.4/dsh-purge-1.1.71-rc2.4.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.5/dsh-purge-1.1.71-rc2.5.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -99,7 +99,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 
 ### 界面预览
 
-> 截图来自上游 1.1.31，面板布局与配置项在 rc2.4 保持不变；截图里的版本号不是本版。
+> 截图来自上游 1.1.31，面板布局与配置项在 rc2.5 保持不变；截图里的版本号不是本版。
 
 | 面板 | 规则总览 |
 |---|---|
@@ -112,8 +112,8 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 ### 文档
 
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 19 条补丁的锚点前后对照、红队预设 broken 根因与修法
-- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 的完整变更链
-- [发行说明 RELEASE-NOTES-1.1.71-rc2.4.md](RELEASE-NOTES-1.1.71-rc2.4.md) —— release body 原文
+- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.5 的完整变更链
+- [发行说明 RELEASE-NOTES-1.1.71-rc2.5.md](RELEASE-NOTES-1.1.71-rc2.5.md) —— release body 原文
 
 ---
 
@@ -127,11 +127,11 @@ No new capabilities: same patch ids, same order, same display groups, same confi
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.3** | **this release (rc2.4)** |
-| 0.2.2-rc.1 | rc2.4 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **this release (rc2.5)** |
+| 0.2.2-rc.1 | rc2.5 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.4 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
+rc2.5 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
 
 ### Why
 
@@ -170,7 +170,7 @@ tgz re-extracted and re-applied               identical result
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.4/dsh-purge-1.1.71-rc2.4.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.5/dsh-purge-1.1.71-rc2.5.tgz
 ```
 
 ### License
@@ -180,4 +180,4 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 ### Docs
 
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors for all 19 patches, plus the red-team preset `registered-broken` root cause and fix
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 change chain
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 → rc2.5 change chain

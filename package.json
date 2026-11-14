@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge",
-  "version": "1.1.71-rc2.4",
-  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.1 适配分支（满血）。",
+  "version": "1.1.71-rc2.5",
+  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -57,11 +57,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/evan545295555-hash/Evans-repo.git"
+    "url": "git+https://github.com/devin667/dsh-purge-022.git"
   },
-  "homepage": "https://github.com/evan545295555-hash/Evans-repo#readme",
+  "homepage": "https://github.com/devin667/dsh-purge-022#readme",
   "bugs": {
-    "url": "https://github.com/evan545295555-hash/Evans-repo/issues"
+    "url": "https://github.com/devin667/dsh-purge-022/issues"
   },
   "dsh": {
     "bundle": {
@@ -79,9 +79,9 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/evan545295555-hash/Evans-repo/releases/download/v1.1.71-rc2.1/dsh-purge-1.1.71-rc2.1.tgz",
-      "zip": "https://github.com/evan545295555-hash/Evans-repo/archive/refs/tags/v1.1.71-rc2.1.zip",
-      "git": "git+https://github.com/evan545295555-hash/Evans-repo.git"
+      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.5/dsh-purge-1.1.71-rc2.5.tgz",
+      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.5.zip",
+      "git": "git+https://github.com/devin667/dsh-purge-022.git"
     }
   },
   "publishConfig": {

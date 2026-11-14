@@ -2,7 +2,7 @@
 
 面向想弄清「这版到底改了什么、为什么改」的读者。只关心安装的话看 [README](../README.md)。
 
-本文分两部分：前半是 **0.2.2-rc.1** 的适配（rc2.2 / rc2.3），文末「追加」一节是 **0.2.2-rc.3** 的增量（rc2.4）。
+本文分两部分：前半是 **0.2.2-rc.1** 的适配（rc2.2 / rc2.3），文末「追加」一节是 **0.2.2-rc.3** 的增量（rc2.4 起，rc2.5 沿用）。
 
 ## 这是什么
 
@@ -284,9 +284,9 @@ dsh-harness-dev-context/lib/index.js
 
 ---
 
-## 追加：0.2.2-rc.3 的四条变更（rc2.4）
+## 追加：0.2.2-rc.3 的四条变更（rc2.4 起）
 
-rc.3 相对 rc.1 的改动集中在四处，都落在「代码层」补丁的锚点上。rc2.4 的做法是**追加**新锚点而非替换，所以同一份包能同时命中两代宿主。
+rc.3 相对 rc.1 的改动集中在四处，都落在「代码层」补丁的锚点上。rc2.4 起采用**追加**新锚点而非替换，所以同一份包能同时命中两代宿主。
 
 ### #13 `ESCALATION_WIDENING_EXEMPT`
 
@@ -383,3 +383,18 @@ asar 头部是 `[4 字节 uint32 size][4 字节 uint32 header-size][header JSON]
 - 算数据起点用 `8 + readUInt32LE(4)`（= 4 + 4，再加 pickle 里的实际字符串长度）
 
 偏移错 3 字节的症状是：**所有** `node --check` 都报 `SyntaxError: Unexpected token '{'`，因为每个文件首行都多了 `s>\n`。这个症状和「宿主坏了」/「补丁打坏了」极像，容易被误判。**判断方法**：先对未打补丁的原始解包树跑基线检查（1,267 个 JS 应全部 0 失败），基线过了再怀疑补丁层。
+
+---
+
+## 追加：rc2.5 只动更新链路
+
+rc2.5 与 rc2.4 的补丁表完全相同（79 条，67 applied / 11 na / 1 missing_file）。这一版改的是面板的「更新」分支：
+
+| 位置 | rc2.4 | rc2.5 |
+|---|---|---|
+| `lib/update.js` `REPO` | `evan545295555-hash/Evans-repo` | `devin667/dsh-purge-022` |
+| `lib/update.js` `STABLE_REF` | `master` | `main` |
+| 远端不可达 | `throw new Error("无法读取 GitHub master")` → 面板 500 | `ok:true` + `error` 文案，`versions: []` |
+| 本地版本行 ref | 有时为 `master`，与远端撞名 | 固定 `local-<ver>` |
+
+要点：不要让面板的「正式版」下拉去指一个旧版本的仓库。`applyUpdate()` 落地时对 `lib` / `bin` / `docs` 是**先 `rm` 整目录再复制**，指错仓库就等于把兼容层删掉。

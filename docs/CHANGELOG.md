@@ -7,6 +7,45 @@
 
 ---
 
+## v1.1.71-rc2.5 — 2026-11-14
+
+只动更新链路，补丁能力与 rc2.4 完全一致（79 条补丁、67 applied / 11 na / 1 missing_file）。
+
+### Fixed
+
+- **更新源指回了上游，会误点降级。** `lib/update.js` 的 `REPO` 原本是
+  `evan545295555-hash/Evans-repo`、`STABLE_REF` 是 `master`，那条分支上的包是
+  `1.1.71-rc2.1`（`dshTarget` 只到 `0.2.1-rc.2`）。面板因此会摆出一个可点、
+  但点下去会删掉 `lib/compat-0.2.2.js` 与 `lib/compat-0.2.3.js` 的「切换到此版本」按钮。
+  现在 `REPO = "devin667/dsh-purge-022"`、`STABLE_REF = "main"`。
+- **GitHub 不可达时整块面板 500。** `checkUpdate()` 原本在
+  `if (!lanes.stable.hasRemote) throw new Error("无法读取 GitHub master");` 直接抛错；
+  未认证 API 配额（60 次/小时）用完后必现。改为返回
+  `ok: true` + `error: "无法读取 GitHub（网络不通或 API 限流）"`，`versions` 为空数组，
+  不提供任何可切换目标。
+- **本地版本行与远端分支同名。** `ensureRunningVersion()` 原本会按「列表里有没有
+  `master`」决定本地行叫 `master` 还是 `local-<ver>`，撞名会让 `markCurrent()` 误判当前版本。
+  现在固定为带 `local-` 前缀的 ref，不再与远端分支同名。
+
+### Changed
+
+- `lib/redteam/ui.js`：`githubRepoOf()` 兜底值 → `devin667/dsh-purge-022`
+- `client.js`：`welcome.repo` 中英两处 → `https://github.com/devin667/dsh-purge-022`
+- `package.json`：`repository` / `homepage` / `bugs` / `dsh.install.{tarball,zip,git}`
+  全部指向本仓库与 `v1.1.71-rc2.5`
+- `package.json`：`description` 由「0.2.2-rc.1 适配分支」改为「0.2.2-rc.3 / rc.1 适配分支」，
+  与 `dshTarget` 对齐
+
+### Verified
+
+- 0.2.2-rc.3 宿主跑 `patchStatus()`：`{"applied":67,"na":11,"missing_file":1}`，
+  唯一 missing 仍是 `#71`（未装良神预设）
+- 包内 62 个 `.js` / `.mjs` 全量 `node --check`：0 失败
+- `checkUpdate()` 走代理 → `hasUpdate:false` / `error:null`；直连超时 →
+  `ok:true` / `error:"无法读取 GitHub（网络不通或 API 限流）"` / `versions:[]`
+
+---
+
 ## v1.1.71-rc2.4 — 2026-11-14
 
 在 rc2.3 基础上再往前对齐一版，同一份包同时支持 **0.2.2-rc.1** 与 **0.2.2-rc.3**。
