@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge",
-  "version": "1.1.71-rc2.5",
-  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
+  "version": "1.1.71-rc2.6",
+  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。含红队模式与无限制模式两套预设。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -13,8 +13,9 @@
     "./redteam/store": "./lib/redteam/store.js",
     "./redteam/ui": "./lib/redteam/ui.js",
     "./redteam/tools": "./lib/redteam/tools.js",
+    "./redteam/persona": "./lib/redteam/persona.js",
     "./package.json": "./package.json",
-    "./redteam/persona": "./lib/redteam/persona.js"
+    "./nolimit": "./lib/nolimit/index.js"
   },
   "bin": {
     "dsh-purge": "bin/dsh-purge.js"
@@ -79,8 +80,8 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.5/dsh-purge-1.1.71-rc2.5.tgz",
-      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.5.zip",
+      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.6/dsh-purge-1.1.71-rc2.6.tgz",
+      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.6.zip",
       "git": "git+https://github.com/devin667/dsh-purge-022.git"
     }
   },

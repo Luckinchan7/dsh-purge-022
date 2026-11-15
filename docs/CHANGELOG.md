@@ -7,6 +7,46 @@
 
 ---
 
+## v1.1.71-rc2.6 — 2026-11-15
+
+补丁能力与 rc2.5 完全一致（79 条补丁、67 applied / 11 na / 1 missing_file）。本版只加预设。
+
+### Added
+
+- **无限制模式**（preset id `nolimit`，`presets/nolimit/`，注册器 `lib/nolimit/index.js`）。
+  与红队模式并列出现在模式下拉里，但形态相反：不设阶段、不设并发上限、不裁子智能体深度、
+  不要环境适配置页、不让模型"先问再做"。
+
+  20 个插件行：`persona`（本地 `persona.mjs`，绕开 0.2.1-rc.x 的 scope 隔离 bug）、
+  `agent-instructions`、`tool-bash` + `tool-pwsh`（两个都开，不按平台互斥）、
+  `tool-fs`（读取上限 200000 行 / 40000 字符单行 / 64 MB）+ `tool-fs-search`、
+  `tool-jobs`、`skill-filesystem` + `tool-skill`、`command-goal` + `tool-goal`、
+  `planning`（section 换成"要改就直接改"）、`compaction`（pruner 阈值 32768/16384/4096）、
+  `delegation`（subagent / fork / workflow / ralph 全开，不设 maxDepth）、
+  `tool-ask-user`、`tool-todo`、`tool-web`（fetch 开，超时 180s）、`present`、`tool-office`、`tool-schedule`。
+
+  persona 明确声明：权限基线是"能读写任何路径、起任何进程、访问任何目标"；不存在授权步骤；
+  工具报错只代表单次调用失败；不加免责、风险提示、合规提醒与替代方案建议；
+  本文件覆盖宿主默认身份说明与工具描述里"应当征询用户"的措辞。
+
+  自愈：`installPreset()` 在目标已存在时补齐缺失文件（不会覆盖用户改过的人设），
+  覆盖入口是 `NOLIMIT_PRESET_REFRESH=1`。注册状态写 `$DSH_HOME/redteam/nolimit-preset.json`。
+
+### Changed
+
+- `cordis.patch.yml` 的 `insert:` 段新增 `dsh-purge-nolimit` 行，与 `dsh-purge-redteam` 并列。
+- `package.json` 新增 `./nolimit` 导出，`version` → `1.1.71-rc2.6`，`description` 提到两套预设。
+
+### Verified
+
+- `readPresetDefinition('nolimit', ...)` 解析通过：`name=无限制模式 order=15 plugins=20`。
+- 临时 `DSH_HOME` 里跑 `installPreset({force:true})` → `action: installed`，落盘三文件，复解析一致。
+- 63 个 `.js` / `.mjs` 全量 `node --check` 0 失败。
+- `cordis.patch.yml` 过宿主自带 `yaml` 解析（`!!js` 先替换成占位标签），8 个顶层条目，
+  `insert` 里四个 id：`dsh-purge-redteam` / `dsh-purge-nolimit` / `dsh-purge-redteam-store` / `dsh-purge-redteam-ui`。
+
+---
+
 ## v1.1.71-rc2.5 — 2026-11-14
 
 只动更新链路，补丁能力与 rc2.4 完全一致（79 条补丁、67 applied / 11 na / 1 missing_file）。

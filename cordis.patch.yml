@@ -65,6 +65,11 @@
     - id: dsh-purge-redteam
       name: dsh-purge/redteam
 
+    # 无限制模式（nolimit）：预设落地 + 注册到模式下拉（本插件 lib/nolimit）
+    # 与 redteam 完全独立：不共用 persona、不共用流程约束，只共用技能目录。
+    - id: dsh-purge-nolimit
+      name: dsh-purge/nolimit
+
     # 演练台事实库（SQLite），数据在 $DSH_HOME/redteam
     - id: dsh-purge-redteam-store
       name: dsh-purge/redteam/store
