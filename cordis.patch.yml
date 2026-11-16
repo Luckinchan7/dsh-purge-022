@@ -53,6 +53,7 @@
     postPrompt: ""
     postPromptOrder: 5100
     tailAnchor: true
+    boost: true
     autoRetry: true
     retryMax: 3
     autoContinue: false
