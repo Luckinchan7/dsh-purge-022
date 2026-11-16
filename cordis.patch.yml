@@ -52,6 +52,7 @@
     verbose: false
     postPrompt: ""
     postPromptOrder: 5100
+    tailAnchor: true
     autoRetry: true
     retryMax: 3
     autoContinue: false

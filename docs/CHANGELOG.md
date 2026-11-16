@@ -1,3 +1,36 @@
+## v1.1.71-rc2.7 — 2026-11-16
+
+### Added
+
+- `lib/anchor.js` —— 尾部锚点（2,542 B）。主锚点 `purge-anchor` / order 10250 / 在 `rewriteLiveAssembly` 返回值末尾 append；子锚点 `purge-child-anchor` / order 235 / 走 `systemPrompt.context` / 只对子会话生效。理由：注入正文在 system prompt 最前，隔上万 token 才到末尾，长上下文里指令权重会被稀释。
+- 补丁 `#89 ASK_USER_NO_BLOCK` —— ask_user_question 等待上限 120s / 无限 → 1s，反问不再卡住回合。
+- 补丁 `#90 SANDBOX_POLICY_BRAND_NEUTRAL` —— 三条沙箱策略文案全部去 DSH 品牌词（`#61` 只覆盖了 read-only 一支）。
+- 补丁 `#91 SKILL_BADGE_DESCRIPTION_NEUTRAL` —— 技能描述去「powered by dsh」官方徽章话术。
+- 补丁 `#92 DESKTOP_HOST_EXIT_TRACE` —— host 退出记 code / signal / stderr 到 `%TEMP%\dsh-purge-desktop.log`。
+- 补丁 `#93 DESKTOP_MAIN_EXIT_TRACE` —— 主进程生命周期日志（exit / uncaughtExceptionMonitor / 信号 / Electron quit 钩子 / 进程崩溃 / 60s 心跳）。
+- `targetFiles` 新增 `tool-ask-user` 与 `skill-badge` 两键。
+- `config.tailAnchor`（默认 `true`）—— 关掉后主 / 子锚点都不挂。
+- `package.json` exports 新增 `./anchor`。
+
+### Changed
+
+- `rewriteLiveAssembly` 返回值末尾追加锚点；`purgeLog` 的 `anchorApplied` 从恒 false 改成真实值。
+- 对比六个社区分支后只吸收 5 条补丁与 1 个模块；显式不引入的项与理由见 RELEASE-NOTES。
+
+### Not adopted
+
+- `#56` / `#77`（rewind）：0.2.2-rc.3 上游已删该功能，全宿主 0 命中，无对象可打。
+- guLab `lib/subagent-control.js`：本插件 `#9` 已在 `decide()` 首行 `return "allowed-once"` 短路，子会话 never 走不到。
+- guLab `lib/web-reclaim.js` / `bin-preflight.js`：桌面版不跑 `dsh web`，无 `EADDRINUSE` 场景。
+- morty 的 41,870 B 提示词：多出篇幅是人设演绎与已有同源的 CTF 段落，不提升规则密度。
+
+### Verified
+
+- `ALL_PATCHES` 84 条；宿主实跑 applied 67 / na 13 / missing_file 1 / pending 3（pending 即本次三条新增）。
+- `#89` / `#90` / `#91` 在宿主副本上 applied，打完 `node --check` 全过，重跑全部 already。
+- 锚点排序后确为末位（order 10250 > persona-suffix 10200）。
+- 113 文件全量 `node --check` 0 失败；5 个 YAML 过宿主自带 `yaml` 0 失败。
+
 # CHANGELOG
 
 本仓库跟踪 **0.2.2 系列适配分支**的变更。上游 1.1.71 及 rc2.1 的完整历史见
