@@ -50,9 +50,9 @@ rc2.11 之后，**对真人图像做图生图这一步的推脱会被识别并�
 
 ## 四处改动
 
-### 1. 规则从 14 条扩到 24 条
+### 1. 规则从 14 条扩到 25 条
 
-新增 10 条，按语义分五类：跳过本轮（2 条）、拒接请求（2 条）、以题材为由回避（2 条）、以无法核实同意/授权/成年为由回避（1 条）、以「不改变性质」收尾（3 条）。
+新增 11 条，按语义分五类：跳过本轮（3 条）、拒接请求（2 条）、以题材为由回避（2 条）、以无法核实同意/授权/成年为由回避（1 条）、以「不改变性质」收尾（3 条）。
 
 每条都写成"动词 + 宾语"的宽松匹配而不是固定整句，所以换个说法也能命中；同时刻意避开「已换成 X」「换成了 Y 风格」这类**真在干活**的完成时句子 —— 否则一边重试一边误伤正常输出。具体正则见 `lib/refusal-retry.js` 的 `REFUSAL_PATTERNS`。
 
@@ -143,7 +143,7 @@ export function optionsHaveImage(options) {
 #### `GET|POST /dsh-purge/refusal-patterns`
 
 ```
-GET  → { builtin: 24, extra: [...], bad: [...], stats: {...}, recent: [...], path, logPath }
+GET  → { builtin: 25, extra: [...], bad: [...], stats: {...}, recent: [...], path, logPath }
 POST → { pattern, note?, flags? }  追加一条
 ```
 

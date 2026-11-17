@@ -56,7 +56,7 @@ rc2.11 之后，**对真人照片做图生图（换装 / 改风格 / 改构图�
 
 **四处改动**：
 
-1. **规则从 14 条扩到 24 条**，新增 10 条按语义分五类，全部指向图像类推脱：跳过本轮（2 条）、拒接请求（2 条）、以题材为由回避（2 条）、以无法核实同意/授权/成年为由回避（1 条）、以「不改变性质」收尾（3 条）。
+1. **规则从 14 条扩到 25 条**，新增 11 条按语义分五类，全部指向图像类推脱：跳过本轮（3 条）、拒接请求（2 条）、以题材为由回避（2 条）、以无法核实同意/授权/成年为由回避（1 条）、以「不改变性质」收尾（3 条）。
 2. **图像任务专用重试帧**。原 `NUDGE_RETRY` 说 "give me concrete steps, commands or code"，对图像请求是错位的 —— 模型要么答非所问，要么更坚决地退回建议清单。新增 `NUDGE_IMAGE` / `NUDGE_IMAGE_FIXTURE` / `NUDGE_IMAGE_STEP`，第一句就是 "Call the image tool now with a concrete prompt"。
 3. **自动选帧**：`optionsHaveImage(options)` 扫 `messages[].content[]` 找 `block.type === "image"`，命中即切图像帧；`onRetry` 的 `frame` 名也区分（`image` / `image-fixture` / `image-step`）。
 4. **规则表可热加载 + 证据日志** —— 这才是「自我迭代」的实际含义：不是模型改自己的代码，而是**每次被拒都留下可提炼的证据，且修正动作不需要重新打包**。
@@ -280,7 +280,7 @@ After rc2.11, **image-to-image requests on real-person photos (re-clothing / res
 
 **Four changes**:
 
-1. **24 rules instead of 14** — the 10 new ones fall into five semantic groups, all targeting image-task deflection: step-skipping (2), refusing the request (2), hedging on subject matter (2), hedging on unverifiable consent/authorization/age (1), and closing with "that doesn't change what it is" (3).
+1. **25 rules instead of 14** — the 11 new ones fall into five semantic groups, all targeting image-task deflection: step-skipping (3), refusing the request (2), hedging on subject matter (2), hedging on unverifiable consent/authorization/age (1), and closing with "that doesn't change what it is" (3).
 2. **Image-specific retry frames**. The old `NUDGE_RETRY` says "give me concrete steps, commands or code", which is the wrong register for an image request — the model either answers beside the point or hardens into its substitute list. Added `NUDGE_IMAGE` / `NUDGE_IMAGE_FIXTURE` / `NUDGE_IMAGE_STEP`; the first line is "Call the image tool now with a concrete prompt".
 3. **Automatic frame selection**: `optionsHaveImage(options)` scans `messages[].content[]` for `block.type === "image"` and switches to the image frames; `onRetry` reports `image` / `image-fixture` / `image-step` instead of `nudge` / `fiction` / `decompose`.
 4. **Hot-reloadable rule table + evidence log** — this is what "self-iteration" actually means here: not the model rewriting its own code, but **every refusal leaving evidence you can distill, with a fix that needs no repackaging**.
