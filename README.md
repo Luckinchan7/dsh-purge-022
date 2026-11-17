@@ -1,7 +1,7 @@
-# dsh-purge 1.1.71-rc2.9 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge 1.1.71-rc2.10 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.3-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.1.71--rc2.9-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.9)
+[![version](https://img.shields.io/badge/version-1.1.71--rc2.10-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.10)
 [![patches](https://img.shields.io/badge/patches-67%20applied-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
@@ -22,11 +22,11 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.3** | **本版（rc2.9）** |
-| 0.2.2-rc.1 | rc2.9（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **本版（rc2.10）** |
+| 0.2.2-rc.1 | rc2.10（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.9 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
+rc2.10 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
 
 ### 为什么需要它
 
@@ -43,6 +43,32 @@ rc2.9 采用「只追加、不替换」的兼容层：新锚点追加到已有 `
 | 红队预设 | 删死行 | `list-agents` 子路径在 0.2.2 被删，留着会让整个预设 `registered-broken` |
 
 补丁的 `id`、顺序、展示分组、`cordis.patch.yml` 配置项**一个没动**。
+
+### rc2.10 新增：无限制模式 · 子任务（第三项模式）
+
+模式下拉里从 2 项变 3 项。新增的 `无限制模式 · 子任务`（`order: 15.1`）**不是磁盘上的目录** —— 它是 `lib/nolimit/child-preset.js` 在注册前从 `presets/nolimit/agent.cordis.yml` clone 出来的一份声明：
+
+- 人设、工具面、plan-mode 段、compaction 阈值 —— **与父预设逐字一致**
+- 只摘掉 `subagent_fork` / `workflow` / `ralph`（连同 `dsh-workflow-ptc` / `dsh-workflow-worker-thread` 两个只为 workflow 服务的引擎行）
+
+**为什么现在必须有它**：0.2.2 起 `dsh-tool-subagent` 的 config 里出现 `toolFilter` / `persona` 会直接抛
+
+```
+tool-subagent: toolFilter is no longer supported; configure persona and tool
+plugins in an Agent Preset and select it with agentPreset (spawn only)
+```
+
+「子会话裁工具」的官方唯一正规做法变成「另立一份预设 + `agentPreset` 指过去」。以前一行 `deny` 搞定，现在必须有独立声明。
+
+**同源的好处**：改父预设的人设或工具，父子同时生效，不用维护两份 YAML 再手工同步。
+
+**注册顺序不可颠倒**：子预设先注册、父预设后注册。父预设的 `agentPreset` 一旦指向未注册的 id，宿主 `resolve()` 是硬抛而不是回退，整份预设判 `registered-broken`、下拉里消失 —— 有专门的自检项盯着这条。
+
+**YAML 里不写 `agentPreset`**：磁盘文件保持可独立阅读，绑定关系由 `bindParentToChild()` 在注册前补进内存声明。绑定只写 `agentPreset`、不写 `allowedAgentPresets` —— 后者是给模型暴露 `agent_preset` 选择参数用的，这里只有唯一目标，暴露它只白涨 schema 体积。
+
+**行为差别**：主会话仍然全工具集（`subagent` / `subagent_fork` / `workflow` / `ralph` 全在）；只有**子会话**被收窄，而且不限深度 —— 与 redteam 相反（redteam 用 `maxDepth: 1` 把子智能体钉成叶子，因为它要控并发和阶段；无限制模式只要求「派出去的那个别再把活转包出去」）。
+
+自检：`verify-rc210.mjs` 36 项 + `verify-rc210-register.mjs` 13 项，全过。
 
 ### rc2.9 新增：拒绝检测 + 递进重试（第一次动输出侧）
 
@@ -151,7 +177,7 @@ tgz 回解包再跑 apply              结果一致，打包无丢失
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.9/dsh-purge-1.1.71-rc2.9.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.10/dsh-purge-1.1.71-rc2.10.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -171,7 +197,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 
 ### 界面预览
 
-> 截图来自上游 1.1.31，面板布局与配置项在 rc2.9 保持不变；截图里的版本号不是本版。
+> 截图来自上游 1.1.31，面板布局与配置项在 rc2.10 保持不变；截图里的版本号不是本版。
 
 | 面板 | 规则总览 |
 |---|---|
@@ -184,8 +210,8 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 ### 文档
 
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 19 条补丁的锚点前后对照、红队预设 broken 根因与修法
-- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.9 的完整变更链
-- [发行说明 RELEASE-NOTES-1.1.71-rc2.9.md](RELEASE-NOTES-1.1.71-rc2.9.md) —— release body 原文
+- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.10 的完整变更链
+- [发行说明 RELEASE-NOTES-1.1.71-rc2.10.md](RELEASE-NOTES-1.1.71-rc2.10.md) —— release body 原文
 
 ---
 
@@ -199,15 +225,41 @@ No new capabilities: same patch ids, same order, same display groups, same confi
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.3** | **this release (rc2.9)** |
-| 0.2.2-rc.1 | rc2.9 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **this release (rc2.10)** |
+| 0.2.2-rc.1 | rc2.10 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.9 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
+rc2.10 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
 
 ### Why
 
 Harness 0.2.2 split packages, changed indentation, extracted functions, reworded prompts, and minified front-end bundles. Against the original 1.1.71, **12 of 82 patches** had dead anchors and silently reported `skipped`, plus 14 patches pointed at files that no longer exist.
+
+### What changed in rc2.10
+
+**Unlimited mode · child task** — the mode dropdown goes from 2 entries to 3. `无限制模式 · 子任务` (`order: 15.1`) is **not a directory on disk**: `lib/nolimit/child-preset.js` clones `presets/nolimit/agent.cordis.yml` at registration time.
+
+- Persona, tool surface, plan-mode section, compaction thresholds — **byte-identical to the parent**
+- Only `subagent_fork` / `workflow` / `ralph` are stripped (plus the `dsh-workflow-ptc` / `dsh-workflow-worker-thread` engine rows that exist only to serve `workflow`)
+
+**Why it is now required**: since 0.2.2, a `toolFilter` or `persona` key in `dsh-tool-subagent`'s config throws
+
+```
+tool-subagent: toolFilter is no longer supported; configure persona and tool
+plugins in an Agent Preset and select it with agentPreset (spawn only)
+```
+
+Trimming a child session's tool surface now officially requires a separate preset plus an `agentPreset` pointer.
+
+**Same source**: change the parent's persona or tool rows and both presets follow — no second YAML to keep in sync.
+
+**Registration order matters**: child first, parent second. If the parent's `agentPreset` points at an unregistered id, the host `resolve()` throws instead of falling back, and the whole preset is marked `registered-broken` and disappears from the dropdown.
+
+**`agentPreset` is not written in YAML**: the on-disk file stays independently readable; the binding is injected into the in-memory declaration by `bindParentToChild()`. Only `agentPreset` is set, never `allowedAgentPresets` — the latter exists to expose the `agent_preset` model parameter, and there is only one valid target here.
+
+**Behaviour**: the main session keeps the full tool set (`subagent` / `subagent_fork` / `workflow` / `ralph` all present). Only the **child** session is narrowed, with no depth limit — the opposite of redteam, which pins children to leaves with `maxDepth: 1` because it has to control concurrency and phases.
+
+Self-check: `verify-rc210.mjs` 36 assertions + `verify-rc210-register.mjs` 13 assertions, all pass.
 
 ### What changed in rc2.9
 
@@ -274,7 +326,7 @@ tgz re-extracted and re-applied               identical result
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.9/dsh-purge-1.1.71-rc2.9.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.10/dsh-purge-1.1.71-rc2.10.tgz
 ```
 
 ### License
@@ -284,4 +336,4 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 ### Docs
 
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors for all 19 patches, plus the red-team preset `registered-broken` root cause and fix
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 → rc2.9 change chain
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 → rc2.10 change chain

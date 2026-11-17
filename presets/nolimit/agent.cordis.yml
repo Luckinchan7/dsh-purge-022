@@ -14,6 +14,14 @@
 # 只贡献 agent 平面的东西：人设 + 工具行。宿主的 base/web composition 仍然持有
 # 注册表本身、sandbox 与 approval 栈、持久化、模型路由——那些不该由 preset 拥有。
 #
+# ── 子任务预设在哪 ────────────────────────────────────────────────────────
+# 模式下拉里还会多出一项「无限制模式 · 子任务」。它不是磁盘上的目录，而是
+# `lib/nolimit/child-preset.js` 在注册前从本文件 clone 出来、摘掉 subagent_fork /
+# workflow / ralph 之后另注册的一份声明。所以：
+#   - 改这里的人设或工具面 → 父子两个预设同时生效，不需要改两份 YAML
+#   - 下面 spawn 行的 `agentPreset` 不在 YAML 里写，注册时由 bindParentToChild()
+#     补上，指向那份派生声明。写死在 YAML 里会让预设依赖一个它自己看不见的前提。
+#
 # A service row here MUST sit inside a group carrying an `isolate` realm.
 # 本文件里带服务的行只有 planning / compaction / delegation 三个 group，
 # 都带了 isolate，不会往 root realm 发布、也不会和别的 preset 撞名。
@@ -196,6 +204,10 @@
         toolName: subagent
         modelSelectionSettings: true
         backgroundMode: continuable
+        # 子会话用「无限制模式 · 子任务」那份派生预设：它从本文件 clone 出来后
+        # 摘掉了 subagent_fork / workflow / ralph，其余工具面完全一致。
+        # 这几行 YAML 里没有 agentPreset —— 由 lib/nolimit/index.js 的
+        # bindParentToChild() 在注册前补上（写了就变成磁盘依赖内存声明）。
 
     - id: tool-subagent-fork
       name: '@deepseek-ai/dsh-tool-subagent'

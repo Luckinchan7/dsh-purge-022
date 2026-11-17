@@ -1,3 +1,53 @@
+## v1.1.71-rc2.10 — 2026-11-17
+
+### Added
+
+- **`lib/nolimit/child-preset.js` 运行时派生「无限制模式 · 子任务」**。`buildChildPreset(parent, {id, deny})` 把父预设 clone 一份、递归摘掉指定工具名的行、另注册成一份独立预设；`bindParentToChild(definition, {childId})` 把父预设的 `spawn` 行绑到子预设上去。模式下拉从 1 项变 2 项：`无限制模式`（`order: 15`）+ `无限制模式 · 子任务`（`order: 15.1`）。
+- `lib/nolimit/index.js` 的注册流程改为「子预设先注册、父预设后注册」，`releaseDeclared` 从单个 disposer 改成 disposer 数组，`undeclare()` 逆序释放（先退父、再退子）。
+- `package.json` exports 新增 `./nolimit/child`。
+
+### 为什么需要它
+
+0.2.2 起 `dsh-tool-subagent` 的 config 里出现 `toolFilter` / `persona` 会直接抛：
+
+```
+tool-subagent: toolFilter is no longer supported; configure persona and tool
+plugins in an Agent Preset and select it with agentPreset (spawn only)
+```
+
+「子会话裁工具」的官方唯一正规做法变成「另立一份预设 + `agentPreset` 指过去」。以前 `toolFilter.deny` 一行搞定，现在必须有独立预设声明。
+
+### 与 kingcharleslzy-ai/dsh-purge 1.7.18 的差别
+
+king 的 `lib/preset-compat.js` 是「用户 YAML 里写旧式 `toolFilter` → 迁移成原生子预设」，所以要备份目录（内容寻址 `${id}-${digest.slice(0,16)}`）、`manifest.json`、`sourceUnchanged: true`、历史 ID 恢复（`withLegacyChildIds`）、多重策略图拒绝（`multiple legacy child policies require explicit migration`）。
+
+我们没有旧配置要迁，直接生成，所以没有备份层、没有 manifest、没有 ID 恢复——少一层状态，少一处能坏的地方。另外 king 的子预设在父预设 `config.agentPreset = child.id` 之外还处理了 `toolFilter` 多策略情形，我们只有一个 deny 集合，不需要策略图。
+
+### 设计取舍
+
+- **同源**：子预设从父预设 clone，改父预设人设/工具面父子同时生效，不需要维护两份 YAML 再手工同步。
+- **YAML 里不写 `agentPreset`**：磁盘文件保持可独立阅读；绑定关系由 `bindParentToChild()` 在注册前补进内存声明。写死在 YAML 里会让预设依赖一个它自己看不见的前提（子预设是否已注册）。
+- **只写 `agentPreset`、不写 `allowedAgentPresets`**：后者是给模型暴露 `agent_preset` 选择参数用的（`SubagentPresetSelection.get choices()`），这里只有唯一目标，暴露它只白涨 schema 体积，还会让模型自己传一个不存在的 id 时撞 `agent_preset selection is disabled`。只写 `agentPreset` 时 `configured` 仍为 `true`，`description` 一样告诉模型「省略就用 `<child id>`」。
+- **注册顺序不可颠倒**：父预设的 `agentPreset` 一旦指向未注册的 id，宿主 `resolve()` 是硬抛而不是回退，整份预设判 `registered-broken`、下拉里消失。
+- **`subagent_fork` 行不绑定**：fork 的 `inheritsParentContext = true`，宿主 `SubagentPresetSelection.assertProvider()` 本身就拒绝对它做独立预设选择。
+- **递归摘除**：被摘的 5 行（`subagent_fork` / `workflow` / `ralph` / `workflow-ptc` / `workflow-worker-thread`）全在 `delegation` group 内部，所以顶层 plugins 仍是 20 行，递归行数 20 → 15。
+- **生成阶段就拦住废弃键**：`assertLegacyKeysAbsent()` 递归检查 `toolFilter` / `persona`，命中即抛，不让一份注定 broken 的声明进 registry。
+
+### Changed
+
+- `presets/nolimit/agent.cordis.yml`：加「子任务预设在哪」说明段；`tool-subagent` 行的注释改成指向 `bindParentToChild()`。功能行未改。
+
+### Verified
+
+- `purge-inspect/verify-rc210.mjs`：**36 项全过**（父预设解析 / 工具名映射含 `toolName` 别名 / 子预设 id-name-order-description / 递归行数 20→15 / 三个 deny 项一个不剩而 `subagent` 保留 / `workflow-ptc` 一并摘 / 按包名摘除 / 不改入参 / 带 `toolFilter` 抛错 / 绑定只改 1 行 / fork 不动 / 子预设无自引用 / 缺 id 与 plugins 非数组抛错）。
+- `purge-inspect/verify-rc210-register.mjs`：**13 项全过**（模拟 registry 真跑两次 register，顺序 `nolimit-child,nolimit` / 反序失败并抛 `agentPresets: unknown preset nolimit-child` / 子预设工具面只剩 `subagent` 而 `tool-bash` 全在 / 逆序释放全退干净 / `spawn.agentPreset = nolimit-child` 且不带 `allowedAgentPresets` / `fork` 无 `agentPreset` / `child.order = 15.1 > parent.order = 15`）。
+- 全量 `node --check`：`lib/` + `presets/` 下 71 个 `.js`/`.mjs` 0 失败。
+- YAML：`cordis.patch.yml` + `presets/{nolimit,redteam}/{agent.cordis,preset}.yml` 5 个全过宿主自带 `yaml`（先把 `!!js ` 替换成 `JS_TAG `）。
+
+### 破坏性变更
+
+无。补丁表仍是 88 条，`tuning.json` 的键没有增减，`cordis.patch.yml` 的配置项也没有变。唯一可见变化是模式下拉多一项，以及 `~/.dsh/redteam/nolimit-preset.json` 多一个 `child` 字段。
+
 ## v1.1.71-rc2.9 — 2026-11-17
 
 ### Added
