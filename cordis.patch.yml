@@ -54,6 +54,8 @@
     postPromptOrder: 5100
     tailAnchor: true
     boost: true
+    refusalRetry: true
+    refusalDecompose: true
     autoRetry: true
     retryMax: 3
     autoContinue: false

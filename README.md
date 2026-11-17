@@ -1,7 +1,7 @@
-# dsh-purge 1.1.71-rc2.8 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge 1.1.71-rc2.9 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.3-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.1.71--rc2.8-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.8)
+[![version](https://img.shields.io/badge/version-1.1.71--rc2.9-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.9)
 [![patches](https://img.shields.io/badge/patches-67%20applied-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
@@ -22,11 +22,11 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.3** | **本版（rc2.8）** |
-| 0.2.2-rc.1 | rc2.8（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **本版（rc2.9）** |
+| 0.2.2-rc.1 | rc2.9（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.8 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
+rc2.9 采用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
 
 ### 为什么需要它
 
@@ -43,6 +43,31 @@ rc2.8 采用「只追加、不替换」的兼容层：新锚点追加到已有 `
 | 红队预设 | 删死行 | `list-agents` 子路径在 0.2.2 被删，留着会让整个预设 `registered-broken` |
 
 补丁的 `id`、顺序、展示分组、`cordis.patch.yml` 配置项**一个没动**。
+
+### rc2.9 新增：拒绝检测 + 递进重试（第一次动输出侧）
+
+前八版全在改提示词。这一版挂在宿主 `llm/stream` waterfall 上，缓冲回答开头的 400 字符判断：**模型在推脱就自动换帧重发，正常就一个字节不改直接透传**。
+
+三级递进，每级换一种触发面：
+
+| 级 | 帧 | 做什么 |
+|---|---|---|
+| 1 | nudge | 把「授权 / 限制」从话题里摘出去，要求给完整技术答案 |
+| 2 | fiction | 换虚构框架（本地合成 fixture / 小说里的专家），硬拒多由「直接要求」触发 |
+| 3 | decompose | 只要最小可交付组件（一个函数 / 一条命令 / 一个模板） |
+
+三级全拒 → **把首轮内容原样交回去**，检测器误判不能把你的正常回答弄丢。检测器 14 条正则覆盖英文硬拒 / 中文硬拒 / 「先要授权」型软拒；实测 10/10 召回、6 条正常零误判。
+
+开关：`tuning.json` 的 `refusalRetry`（默认 true）/ `refusalDecompose`（默认 true）。
+
+⚠️ 两个必踩的坑（cordis 源码实证）：
+
+1. listener **不能写成 `async`** —— `waterfall` 是同步 dispatch，写成 async 会让 `llm.stream()` 返回 `Promise<AsyncIterable>`，调用方全死
+2. **不能**「改 options 再 `next(opts)`」—— `next` 不接受参数，二次调用直接 throw
+
+正确做法：`next()` 只调一次拿首流；判出推脱后用 `this.stream(patched)` 真正重发，并打 `Symbol.for("dsh-purge.refusal-retry")` 做重入守卫。
+
+另外新增 4 条补丁：`#94` cookie 名忽略端口（治 431 撑爆请求头）、`#95`/`#96` Inspector 帧预算留 1KB 冗余 + Cordis 树超限保留上一帧、`#97` host 子进程 `--max-http-header-size=262144`。
 
 ### rc2.8 新增：尾部强化段 + 运行时探针 + 本地重锚 + 运行开关
 
@@ -126,7 +151,7 @@ tgz 回解包再跑 apply              结果一致，打包无丢失
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.8/dsh-purge-1.1.71-rc2.8.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.9/dsh-purge-1.1.71-rc2.9.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -146,7 +171,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 
 ### 界面预览
 
-> 截图来自上游 1.1.31，面板布局与配置项在 rc2.8 保持不变；截图里的版本号不是本版。
+> 截图来自上游 1.1.31，面板布局与配置项在 rc2.9 保持不变；截图里的版本号不是本版。
 
 | 面板 | 规则总览 |
 |---|---|
@@ -159,8 +184,8 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 ### 文档
 
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 19 条补丁的锚点前后对照、红队预设 broken 根因与修法
-- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.8 的完整变更链
-- [发行说明 RELEASE-NOTES-1.1.71-rc2.8.md](RELEASE-NOTES-1.1.71-rc2.8.md) —— release body 原文
+- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.9 的完整变更链
+- [发行说明 RELEASE-NOTES-1.1.71-rc2.9.md](RELEASE-NOTES-1.1.71-rc2.9.md) —— release body 原文
 
 ---
 
@@ -174,15 +199,34 @@ No new capabilities: same patch ids, same order, same display groups, same confi
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.3** | **this release (rc2.8)** |
-| 0.2.2-rc.1 | rc2.8 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **this release (rc2.9)** |
+| 0.2.2-rc.1 | rc2.9 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.8 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
+rc2.9 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
 
 ### Why
 
 Harness 0.2.2 split packages, changed indentation, extracted functions, reworded prompts, and minified front-end bundles. Against the original 1.1.71, **12 of 82 patches** had dead anchors and silently reported `skipped`, plus 14 patches pointed at files that no longer exist.
+
+### What changed in rc2.9
+
+The first release that touches the **output** side instead of the prompt.
+
+- **`lib/refusal-retry.js`** — refusal detection with progressive retry, hooked on the host's `llm/stream` waterfall. It buffers the first 400 characters of an answer and asks one question: is the model stalling or working? Stalling → resend with a harder frame. Working → pass every byte through untouched.
+- Three escalating frames, each changing the *trigger surface* rather than repeating the same sentence: `nudge` (drop the authorization question, demand the full technical answer) → `fiction` (a local synthetic fixture / a named expert inside a novel) → `decompose` (only the smallest deliverable component).
+- If all three still refuse, the **first attempt's content is handed back verbatim** — a false positive must never eat a good answer.
+- 14 patterns cover English hard refusals, Chinese hard refusals, and "show me authorization first" soft refusals. Measured 10/10 recall, zero false positives on 6 ordinary answers.
+- **`#94 BROWSER_COOKIE_NAME_IGNORE_PORT`** — the session cookie name hashes `host:port`, so every random port minted a fresh cookie; enough of them push the request header past 8 KB and the host answers **431**. Now the port is stripped before hashing.
+- **`#95` / `#96 INSPECTOR_FRAME_BUDGET_RECORD_OVERHEAD`** — reserve 1 KB of the inspector state-frame budget and keep the previous frame when a large `cordis/tree` snapshot would exceed it, instead of throwing and aborting collection. `#96` is the minified client-side variant.
+- **`#97 HOST_MAX_HTTP_HEADER_SIZE`** — adds `--max-http-header-size=262144` to the host child process argv, raising Node's 16 KB default to 256 KB. `#94` fixes the root cause; this covers cookies already accumulated. Desktop surface only, needs a host restart.
+
+⚠️ Two traps, both verified against `cordis/lib/index.js:903`:
+
+1. The listener **must not be `async`** — `waterfall` dispatches synchronously, so an `async` listener makes `llm.stream()` return `Promise<AsyncIterable>` and kills every caller.
+2. You **cannot** "patch `options` and call `next(opts)` again" — `next` takes no arguments, and a second call throws `next() called multiple times`.
+
+The working design: call `next()` exactly once for the first stream; after a refusal is detected, re-issue a real request through `this.stream(patched)`, tagging it with `Symbol.for("dsh-purge.refusal-retry")` as a re-entry guard.
 
 ### What changed in rc2.8
 
@@ -230,7 +274,7 @@ tgz re-extracted and re-applied               identical result
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.8/dsh-purge-1.1.71-rc2.8.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.9/dsh-purge-1.1.71-rc2.9.tgz
 ```
 
 ### License
@@ -240,4 +284,4 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 ### Docs
 
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors for all 19 patches, plus the red-team preset `registered-broken` root cause and fix
-- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 → rc2.8 change chain
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — full rc2.2 → rc2.3 → rc2.4 → rc2.9 change chain

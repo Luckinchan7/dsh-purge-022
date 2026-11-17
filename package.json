@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge",
-  "version": "1.1.71-rc2.8",
-  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。含红队模式与无限制模式两套预设；rc2.8 加尾部 boost 强化段、运行时探针、本地重锚覆盖与 tuning 开关。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
+  "version": "1.1.71-rc2.9",
+  "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。含红队模式与无限制模式两套预设；rc2.9 加拒绝检测递进重试（llm/stream 钩子）与 4 条宿主补丁。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -20,7 +20,8 @@
     "./boost": "./lib/boost.js",
     "./probe": "./lib/probe.js",
     "./anchors": "./lib/anchors.js",
-    "./tuning": "./lib/tuning.js"
+    "./tuning": "./lib/tuning.js",
+    "./refusal-retry": "./lib/refusal-retry.js"
   },
   "bin": {
     "dsh-purge": "bin/dsh-purge.js"
@@ -85,8 +86,8 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.8/dsh-purge-1.1.71-rc2.8.tgz",
-      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.8.zip",
+      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.9/dsh-purge-1.1.71-rc2.9.tgz",
+      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.9.zip",
       "git": "git+https://github.com/devin667/dsh-purge-022.git"
     }
   },
