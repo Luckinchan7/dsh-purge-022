@@ -1,7 +1,7 @@
-# dsh-purge 1.1.71-rc2.12 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge 1.1.71-rc2.13.1 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.3-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.1.71--rc2.12-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.12)
+[![version](https://img.shields.io/badge/version-1.1.71--rc2.13.1-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.13.1)
 [![patches](https://img.shields.io/badge/patches-67%20applied-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
@@ -22,11 +22,11 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.3** | **本版（rc2.12）** |
-| 0.2.2-rc.1 | rc2.12（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **本版（rc2.13.1）** |
+| 0.2.2-rc.1 | rc2.13.1（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.12 沿用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
+rc2.13.1 沿用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
 
 ### 为什么需要它
 
@@ -43,6 +43,64 @@ rc2.12 沿用「只追加、不替换」的兼容层：新锚点追加到已有 
 | 红队预设 | 删死行 | `list-agents` 子路径在 0.2.2 被删，留着会让整个预设 `registered-broken` |
 
 补丁的 `id`、顺序、展示分组、`cordis.patch.yml` 配置项**一个没动**。
+
+### rc2.13.1 新增：让会话能一直跑下去（修掉三种「本轮的运行失败」）
+
+rc2.12 之后连续出现三种不同的整轮失败。它们不是同一个 bug，是依次暴露的三层问题；
+后两个才是真正让会话卡死的。
+
+| 报错 | 根因 | 修法 |
+| --- | --- | --- |
+| `message.content.some is not a function` | `stripRefusalHistory` 把 content 写成**字符串**，宿主发请求前直接 `.some()` | 一律写 block 数组（`asContentBlocks`） |
+| `normalizeContentShape is not defined` | 补了调用但没补 import | 补进 `lib/index.js` 的 import 列表 |
+| `413 preflight_compress_failed` | 补丁 **#19 把宿主的工具结果修剪器整条关掉**，历史无界膨胀 | 只放大预算、保留修剪；并把 #22 的 read 上限从 1MB 收回 256KB |
+
+#### 一、413 才是让会话彻底卡死的那个
+
+上游 billion-context 会拒绝 DSH 自己的压缩：
+
+```
+dsh_compaction_refused: bili owns compression on this lane
+```
+
+也就是说 **DSH 侧的压缩 checkpoint 永远落不了地**，历史体积只能靠「工具结果修剪」这一个阀门。
+rc2.12 的 #19 把它关成了 `pruneContent() { return null; }`，于是：
+
+```
+5394 条消息 / 正文 ~5.9MB
+  → 代理按 ~7.5 bytes/token 判 ≈ 78 万 tokens
+  → 超过窗口 75 万
+  → 413，连证据都不转发
+```
+
+同一个会话里有干净的对照证据：**purge 卸载后宿主立刻写出 30 条 `compaction/prune`**；
+装着 purge 期间一条都没有。
+
+rc2.13.1 把 #19 改成「保留修剪、只放大预算」（默认 8K/4K/1K → 16K/8K/2K），
+并给老安装留了一条迁移路径（认出 rc2.12 写下的 `return null` 并改回来）。
+
+#### 二、还有一道确定性兜底
+
+只靠宿主修剪器还不够 —— 上游压缩被拒这件事不在我们控制内。所以在
+`deriveMessages` 里加了一层**体积保险丝**：
+
+```
+本轮请求正文 > 2.4MB
+  → 从最老的开始裁中间部分，直到 < 1.6MB
+  → 最近 6 条不动，所有 system 消息一个字不动
+```
+
+`deriveMessages` 是发请求前最后一个能改历史的地方。它只改**派生出来的请求**，
+不动会话存档 —— 刷新后原文还在，不会丢数据。
+
+用两次真实失败会话回放：
+
+| 会话 | 原始正文 | 保险丝后 |
+| --- | --- | --- |
+| 413 @ 10:40 | 5,889,880 bytes | 2,424,792（≈323k tokens，窗口 750k） |
+| 413 @ 10:30 | 8,502,219 bytes | 2,464,857（≈329k tokens） |
+
+自检 `verify-rc213.mjs` 26 项全过（含三条失败路径的可重现验证）。
 
 ### rc2.12 新增：推脱判定的两层重写（不依赖措辞 + 先洗历史）
 
@@ -77,6 +135,7 @@ rc2.12 换了个思路：不再枚举说法，而是判**形状**，并在重试
   → 第二轮的第一句往往是「不管是第几次问，答案都一样」
   → 它不是在重新评估请求，而是在维持自己上一条回答的一致性
 ```
+
 
 换多少帧都没用，因为触发面（上一轮的拒绝文本）一直在上下文里。两步净化：
 
@@ -271,7 +330,7 @@ tgz 回解包再跑 apply              结果一致，打包无丢失
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.12/dsh-purge-1.1.71-rc2.12.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.13.1/dsh-purge-1.1.71-rc2.13.1.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -291,7 +350,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 
 ### 界面预览
 
-> 截图来自上游 1.1.31，面板布局与配置项在 rc2.12 保持不变；截图里的版本号不是本版。
+> 截图来自上游 1.1.31，面板布局与配置项在 rc2.13.1 保持不变；截图里的版本号不是本版。
 
 | 面板 | 规则总览 |
 |---|---|
@@ -304,8 +363,8 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 ### 文档
 
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 19 条补丁的锚点前后对照、红队预设 broken 根因与修法
-- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → rc2.4 → rc2.12 的完整变更链
-- [发行说明 RELEASE-NOTES-1.1.71-rc2.12.md](RELEASE-NOTES-1.1.71-rc2.12.md) —— release body 原文
+- [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → … → rc2.13.1 的完整变更链
+- [发行说明 RELEASE-NOTES-1.1.71-rc2.13.1.md](RELEASE-NOTES-1.1.71-rc2.13.1.md) —— release body 原文
 
 ---
 
@@ -319,15 +378,35 @@ No new capabilities: same patch ids, same order, same display groups, same confi
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.3** | **this release (rc2.12)** |
-| 0.2.2-rc.1 | rc2.12 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.3** | **this release (rc2.13.1)** |
+| 0.2.2-rc.1 | rc2.13.1 (backward compatible) or [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.12 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
+rc2.13.1 uses an **append-only** compat layer: new anchors are appended to the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — so one package behaves identically on both hosts.
 
 ### Why
 
 Harness 0.2.2 split packages, changed indentation, extracted functions, reworded prompts, and minified front-end bundles. Against the original 1.1.71, **12 of 82 patches** had dead anchors and silently reported `skipped`, plus 14 patches pointed at files that no longer exist.
+
+### What changed in rc2.13.1
+
+**First, three whole-turn failures.** rc2.12 shipped a bug that wrote message `content` as a
+plain **string**; the host asserts `message.content.some(...)` before dispatch, so that turn died
+before it was sent — and because the malformed message was already in the session, every following
+turn died the same way. The retry path now always emits block arrays.
+
+The fatal one was different: patch **#19 had turned the host tool-result pruner off entirely**
+(`pruneContent() { return null; }`). The upstream proxy refuses DSH-owned compaction
+(`dsh_compaction_refused: bili owns compression on this lane`), so that pruner is the only thing
+bounding history. With it off, one ordinary session reached 5,394 messages / ~5.9 MB of body text;
+the proxy estimated ~780k tokens against a 750k window and refused to forward it at all.
+
+rc2.13.1 keeps the pruner active with a doubled budget (8K/4K/1K → 16K/8K/2K), adds a migration
+path that recognises the rc2.12 `return null` and restores it, pulls the read cap back from 1 MB to
+256 KB, and adds a deterministic payload fuse in `deriveMessages`
+(>2.4 MB → trim the oldest oversized blocks until <1.6 MB; the last 6 messages and every system
+message are never touched). Replayed against the two real failing sessions, the fuse brings
+5,889,880 → 2,424,792 bytes and 8,502,219 → 2,464,857 bytes.
 
 ### What changed in rc2.12
 
@@ -495,7 +574,7 @@ tgz re-extracted and re-applied               identical result
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.12/dsh-purge-1.1.71-rc2.12.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.13.1/dsh-purge-1.1.71-rc2.13.1.tgz
 ```
 
 ### License

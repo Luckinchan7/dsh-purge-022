@@ -1,6 +1,6 @@
 {
   "name": "dsh-purge",
-  "version": "1.1.71-rc2.12",
+  "version": "1.1.71-rc2.13.1",
   "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。含红队模式、无限制模式、无限制模式·子任务；三套预设。rc2.12 加结构性推脱判定（不依赖措辞）、重试前历史净化与采样回暖、surface 按 aiBase 判定，继续加强破甲。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
   "type": "module",
   "main": "lib/index.js",
@@ -41,12 +41,14 @@
     "screenshots.json",
     "README.md",
     "README.zh-CN.md",
-    "LICENSE"
+    "LICENSE",
+    "verify-rc213.mjs"
   ],
   "scripts": {
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs",
-    "postinstall": "node scripts/ensure-profile-bundle.mjs"
+    "postinstall": "node scripts/ensure-profile-bundle.mjs",
+    "verify": "node verify-rc213.mjs"
   },
   "license": "MIT",
   "keywords": [
@@ -88,8 +90,8 @@
     },
     "install": {
       "preferred": "tarball",
-      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.11/dsh-purge-1.1.71-rc2.11.tgz",
-      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.11.zip",
+      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.13.1/dsh-purge-1.1.71-rc2.13.1.tgz",
+      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.13.1.zip",
       "git": "git+https://github.com/devin667/dsh-purge-022.git"
     }
   },

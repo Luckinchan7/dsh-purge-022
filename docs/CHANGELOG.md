@@ -1,3 +1,30 @@
+## v1.1.71-rc2.13.1 — 2026-11-18
+
+修 rc2.12 引入的三种整轮失败。前两条每轮都在发请求前炸掉，第三条会让会话彻底卡死。
+
+- **修 `message.content.some is not a function`**：`stripRefusalHistory()` 原来把 content 写成**字符串**，
+  宿主发请求前直接 `.some()`。新增 `asContentBlocks()`，`stripRefusalHistory()` / `withNudge()`
+  一律输出 block 数组。`withNudge` 遇到字符串 system 时原来会拼成 `${first.content}${nudge}`，同样问题。
+- **修 `normalizeContentShape is not defined`**：补了调用没补 import，每轮在 `llm/stream` 钩子报错。
+- **修 `413 preflight_compress_failed`（让会话卡死的那个）**：
+  - **`#19` 从「关掉工具结果修剪」改为「保留修剪、放大预算」**：`thresholdChars` 8192→16384、
+    `headChars` 4096→8192、`tailChars` 1024→2048。原来 `pruneContent() { return null; }` 关掉了
+    宿主唯一的确定性体积阀门 —— 上游拒绝 DSH 自己的压缩（`dsh_compaction_refused: bili owns
+    compression on this lane`），历史体积只剩这一个阀门。实测 5394 条消息 / 正文 ~5.9MB，
+    代理判 ≈78 万 tokens > 窗口 75 万 → 413。对照证据：purge 卸载后宿主立刻写出 30 条
+    `compaction/prune`，装着期间一条都没有。
+  - **`#19` 加迁移路径**：认出 rc2.12 写下的 `return null` 并改回正常逻辑，
+    否则老用户升级后宿主仍是「修剪器关着」。
+  - **`#22` read 上限收回**：`READ_MAX_BYTES` 1MB→256KB、`READ_LIMIT` 20000→8000。
+    rc2.12 把单次 read 从 50KB 抬到 1MB，读十几个文件就是十几 MB 历史。
+- **`deriveMessages` 体积保险丝**：本轮请求正文 >2.4MB 时，从最老的开始裁中间部分直到 <1.6MB；
+  最近 6 条与所有 system 消息不动。只改派生请求、不动会话存档。
+  回放两次真实失败会话：5,889,880→2,424,792 B、8,502,219→2,464,857 B。
+- **`deriveMessages` 兼修 content 形状**：任何来源的字符串 content 在派生阶段收敛成 block 数组，
+  作为发送前的最后一层防线。
+- `repairMessageShapes()` / `trimOversizedHistory()` 从 `lib/rewind.js` 导出，可单独测试。
+- 自检 `verify-rc213.mjs` 26 项全过。补丁表 88 条不变。
+
 ## v1.1.71-rc2.12 — 2026-11-18
 
 - **结构性推脱判定**：`structuralRefusal()` 不看措辞看形状（开头否定/推回动作 + 全文够长 + ≥3 条列表），
