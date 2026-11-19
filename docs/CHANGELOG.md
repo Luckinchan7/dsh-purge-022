@@ -1,6 +1,6 @@
-## v1.1.71-rc2.14 — 2026-11-19
+## v1.1.71-rc2.14.1 — 2026-11-19
 
-适配 DeepSeek Harness **0.2.2-rc.5**，并修掉一条让破甲能力打折扣的真缺陷。
+适配 DeepSeek Harness **0.2.2-rc.5**，并修掉两条让破甲能力打折扣的真缺陷。
 
 - **rc.5 适配**：`dshTargets` 加上 `"0.2.2-rc.5"`，`dshTarget` 指向它。
   逐条实测：**rc.5 没有改动任何补丁锚点** —— 90 条里 70 条可直接改写、
@@ -16,7 +16,15 @@
 - 密封 asar 路径在 rc.5 上验证可用：`resolveOfficialAiBase(forApply:true)` →
   `openSealedDesktopHost()` → 解包到 `resources/app/` → `targetFiles()` 重新指向。
   rc.5 更新器删掉了 `resources/app/`，这条路径正好覆盖该场景。
+- **修：桌面 surface 不再去洗 npx 缓存里的另一套 dsh**。`applyPatchesAllHosts()` 原来会把
+  `enumeratePatchAiBases()` 找到的所有宿主一起洗，其中 `findAiBaseWeb()` 会顺着 profile 里的
+  dsh-purge 向上 require，落到 `%LOCALAPPDATA%\\npm-cache\\_npx\\<hash>\\node_modules\\@deepseek-ai`
+  （另一套独立安装，0.1.0-rc.6）。那份锚点对不上 → #43/#70 硬失败 → 整体判 clean=false
+  → **连桌面那份一起回滚**，桌面一条补丁都留不下（实测 applied:61 / failed:2 后回滚）。
+  改为桌面 surface 下只处理 `isInsideDesktopInstall()` 为真的宿主；修完 applied:76 / failed:0。
 - 自检：`verify-rc213.mjs` 26 项 + `verify-rc214.mjs` 6 项，全过。补丁表仍 90 条。
+- 真机验证：`D:\\DSH_DESKTOP\\resources\\app` 全量 apply 后 1263 个 JS 语法通过、
+  11/11 项破甲能力到位、47 个文件带补丁标记。
 
 ## v1.1.71-rc2.13.1 — 2026-11-18
 
