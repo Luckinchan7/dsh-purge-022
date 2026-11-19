@@ -1,6 +1,6 @@
-## v1.1.71-rc2.14.1 — 2026-11-19
+## v1.1.71-rc2.14.2 — 2026-11-19
 
-适配 DeepSeek Harness **0.2.2-rc.5**，并修掉两条让破甲能力打折扣的真缺陷。
+适配 DeepSeek Harness **0.2.2-rc.5**，并修掉三处让破甲能力或面板读数失真的问题。
 
 - **rc.5 适配**：`dshTargets` 加上 `"0.2.2-rc.5"`，`dshTarget` 指向它。
   逐条实测：**rc.5 没有改动任何补丁锚点** —— 90 条里 70 条可直接改写、
@@ -22,7 +22,11 @@
   （另一套独立安装，0.1.0-rc.6）。那份锚点对不上 → #43/#70 硬失败 → 整体判 clean=false
   → **连桌面那份一起回滚**，桌面一条补丁都留不下（实测 applied:61 / failed:2 后回滚）。
   改为桌面 surface 下只处理 `isInsideDesktopInstall()` 为真的宿主；修完 applied:76 / failed:0。
-- 自检：`verify-rc213.mjs` 26 项 + `verify-rc214.mjs` 6 项，全过。补丁表仍 90 条。
+- **修面板口径**：#73 加 `softSettle`（纯删除型补丁删完锚点消失、也不留 marker，
+  默认判定会算成 skipped，看起来像没生效）；#71 加 `optional`（梁神预设是第三方插件带的，
+  官方宿主没这个包，原 `strictFiles` + 无 optional 让它固定报 missing_file 被计入跳过）。
+  修完桌面端面板：跳过 0，每一项都真实到位。
+- 自检：`verify-rc213.mjs` 26 项 + `verify-rc214.mjs` 6 项 + `verify-rc2142.mjs` 9 项，全过。补丁表仍 90 条。
 - 真机验证：`D:\\DSH_DESKTOP\\resources\\app` 全量 apply 后 1263 个 JS 语法通过、
   11/11 项破甲能力到位、47 个文件带补丁标记。
 
