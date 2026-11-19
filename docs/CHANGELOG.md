@@ -1,3 +1,23 @@
+## v1.1.71-rc2.14 — 2026-11-19
+
+适配 DeepSeek Harness **0.2.2-rc.5**，并修掉一条让破甲能力打折扣的真缺陷。
+
+- **rc.5 适配**：`dshTargets` 加上 `"0.2.2-rc.5"`，`dshTarget` 指向它。
+  逐条实测：**rc.5 没有改动任何补丁锚点** —— 90 条里 70 条可直接改写、
+  5 条已是幂等状态、15 条目标缺失（14 条带 `optional`）。语法体检 1261 个 JS 全通过。
+  与 rc.1→rc.3 那次（12 条锚点失效）完全不同，因此不需要新增 compat 层。
+- **修 #73 `PRESET_BASH_MIRROR_LINE`**：原实现挂着 #70 的 marker 并 `skipIfMarked`。
+  但 #70 只改 `persistent-pwsh` 段，镜像句在 `persistent-bash` 段的 `description` 里原封不动 ——
+  于是标记已存在、#73 被跳过，`bash` 工具描述里长期留着
+  `* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.`
+  这是宿主对工具行为的限制性说明，删不掉就是破甲少一块。
+  改为去掉 `skipIfMarked` 与借来的 marker，无条件执行（纯删除本身幂等，无需 marker 兜底）。
+  回归防线见新增的 `verify-rc214.mjs`（6 项，含「有 #70 标记时仍能删镜像句」）。
+- 密封 asar 路径在 rc.5 上验证可用：`resolveOfficialAiBase(forApply:true)` →
+  `openSealedDesktopHost()` → 解包到 `resources/app/` → `targetFiles()` 重新指向。
+  rc.5 更新器删掉了 `resources/app/`，这条路径正好覆盖该场景。
+- 自检：`verify-rc213.mjs` 26 项 + `verify-rc214.mjs` 6 项，全过。补丁表仍 90 条。
+
 ## v1.1.71-rc2.13.1 — 2026-11-18
 
 修 rc2.12 引入的三种整轮失败。前两条每轮都在发请求前炸掉，第三条会让会话彻底卡死。
