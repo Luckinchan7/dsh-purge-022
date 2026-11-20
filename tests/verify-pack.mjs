@@ -1,8 +1,9 @@
 // 模拟 npm pack：按 files 字段算出最终发布内容，检查有没有漏或多。
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = "C:/Users/devin/Documents/deepseek-harness/default-workspace/release";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const files = pkg.files || [];
 
@@ -27,11 +28,13 @@ for (const entry of files) {
   else included.push(entry);
 }
 
-/* 应用排除规则 */
+/* 应用排除规则 —— 与 npm 语义对齐：目录前缀也排除其下所有文件 */
 const excludes = files.filter((f) => f.startsWith("!")).map((f) => f.slice(1).replace(/^\//, ""));
 const final = included.filter((rel) => !excludes.some((ex) => {
   if (ex.endsWith("/**")) return rel.startsWith(ex.slice(0, -3) + "/");
-  return rel === ex;
+  if (rel === ex) return true;
+  // `!docs/preview` 这种目录写法要连子文件一起排掉
+  return rel.startsWith(ex + "/");
 }));
 
 console.log("发布文件数:", final.length);

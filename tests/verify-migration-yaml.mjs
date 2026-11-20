@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 const mod = await import(
-  "file:///C:/Users/devin/Documents/deepseek-harness/default-workspace/release/lib/self-insert.js"
+  "../lib/self-insert.js"
 );
 
 let pass = 0, fail = 0;

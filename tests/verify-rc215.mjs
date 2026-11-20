@@ -16,7 +16,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)));
+const ROOT = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const TMP = path.join(os.tmpdir(), `dsh-purge-verify-rc215-${process.pid}`);
 
 let pass = 0;

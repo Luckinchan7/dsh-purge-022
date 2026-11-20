@@ -569,13 +569,14 @@ purge_status   purge_apply   purge_revert
 ## 本地校验
 
 ```sh
-node verify-rc213.mjs
-node verify-rc214.mjs
-node verify-rc2142.mjs
-node verify-rc120.mjs
-node verify-migration.mjs
-node verify-migration-yaml.mjs
-node verify-rc215.mjs
+node tests/verify-rc213.mjs
+node tests/verify-rc214.mjs
+node tests/verify-rc2142.mjs
+node tests/verify-rc120.mjs
+node tests/verify-migration.mjs
+node tests/verify-migration-yaml.mjs
+node tests/verify-rc215.mjs
+node tests/verify-pack.mjs
 ```
 
 ---
@@ -685,7 +686,7 @@ flowchart LR
 
 每一版改了什么、安装包在 [Releases](https://github.com/devin667/dsh-purge-022/releases)。
 
-面板里的「检查更新 / 更新到 x.y.z」读的是本仓库的 GitHub Release 资产（`lib/update.js`），不依赖 npm registry。发新版时把 `package.json` 的版本号改掉、写 `RELEASE-NOTES-<版本>.md`、打 tag 推上去，再上传 tgz 与 `SHA256SUMS-<版本>` 即可。
+面板里的「检查更新 / 更新到 x.y.z」读的是本仓库的 GitHub Release 资产（`lib/update.js`），不依赖 npm registry。发新版时把 `package.json` 的版本号改掉、写 `docs/releases/RELEASE-NOTES-<版本>.md`、打 tag 推上去，再上传 tgz 与 `SHA256SUMS-<版本>` 即可。
 
 ## 自检
 

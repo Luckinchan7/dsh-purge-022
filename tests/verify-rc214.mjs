@@ -2,7 +2,7 @@
 import fs from "node:fs";
 
 const core = await import(
-  "file:///C:/Users/devin/Documents/deepseek-harness/default-workspace/release/lib/core.js"
+  "../lib/core.js"
 );
 
 let pass = 0, fail = 0;

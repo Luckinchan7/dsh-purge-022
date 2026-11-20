@@ -2,3 +2,8 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# 发布产物不进球库 —— 与 GitHub Release 资产重复存放会白占仓库体积
+*.tgz
+SHA256SUMS-*
+dist/

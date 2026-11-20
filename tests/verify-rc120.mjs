@@ -1,8 +1,9 @@
 // rc1.2.0 发布前验证：改名后各环节是否仍然自洽。
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = "C:/Users/devin/Documents/deepseek-harness/default-workspace/release";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0;
 const ok = (n, c, e = "") => { c ? pass++ : fail++; console.log((c ? "PASS " : "FAIL ") + n, c ? "" : e); };
 
@@ -28,7 +29,7 @@ for (const id of ["id: dsh-purge", "id: dsh-purge-redteam", "id: dsh-purge-nolim
 
 /* 4. profile-insert */
 const { PURGE_NAME, INSERT_BLOCK } = await import(
-  "file:///C:/Users/devin/Documents/deepseek-harness/default-workspace/release/lib/profile-insert.js"
+  "../lib/profile-insert.js"
 );
 ok("4a PURGE_NAME 是新包名", PURGE_NAME === "dsh-purge-022");
 ok("4b INSERT_BLOCK 里 name 用新包名", INSERT_BLOCK.includes("name: dsh-purge-022"));
@@ -42,7 +43,7 @@ ok("5c client.js 路由前缀仍是 /dsh-purge/", client.includes("/dsh-purge/")
 
 /* 6. 自愈模块 */
 const selfInsert = await import(
-  "file:///C:/Users/devin/Documents/deepseek-harness/default-workspace/release/lib/self-insert.js"
+  "../lib/self-insert.js"
 );
 ok("6a 导出 ensureSelfRegistered", typeof selfInsert.ensureSelfRegistered === "function");
 ok("6b 导出 needsSelfRegister", typeof selfInsert.needsSelfRegister === "function");

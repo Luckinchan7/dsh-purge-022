@@ -6,7 +6,7 @@
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.1 发行说明](RELEASE-NOTES-1.2.1.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md)
 
 ![banner](docs/banner.svg)
 
@@ -205,7 +205,7 @@ verify-rc215          42 passed    空闲换包守卫（9 项真跑）
 
 ### 文档
 
-- [1.2.1 发行说明](RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫的完整来龙去脉
+- [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫的完整来龙去脉
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 锚点前后对照、红队预设 broken 根因与修法
 - [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— 完整变更链
 - [中文详解 README.zh-CN.md](README.zh-CN.md) —— 安装、三套预设、排错、路径探测
@@ -348,6 +348,6 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 
 ### Docs
 
-- [RELEASE-NOTES-1.2.1.md](RELEASE-NOTES-1.2.1.md) — the full idle-swap story
+- [RELEASE-NOTES-1.2.1.md](docs/releases/RELEASE-NOTES-1.2.1.md) — the full idle-swap story
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors, red-team preset `registered-broken` root cause
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) — full change chain

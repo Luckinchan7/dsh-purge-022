@@ -1,12 +1,14 @@
-# 发布时排除——和 package.json 的 files 白名单互补
+# 发布时排除 —— 与 package.json 的 files 白名单互补
 *.bak
 *.bak-*
-verify-rc*.mjs
-_selftest*.mjs
+tests/
+dist/
 *.tgz
 SHA256SUMS-*
 RELEASE-NOTES-*.md
+docs/releases/
+docs/preview/
 .git/
 node_modules/
 publish.ps1
-docs/preview/
+scripts/publish.ps1

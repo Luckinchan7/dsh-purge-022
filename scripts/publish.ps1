@@ -16,7 +16,7 @@ param(
 
   [string]$Tag = 'v1.1.71-rc2.3',
 
-  [string]$ReleaseDir = $PSScriptRoot
+  [string]$ReleaseDir = (Split-Path -Parent $PSScriptRoot)
 )
 
 # 原生命令（git/gh）会把进度写到 stderr，Stop 会让脚本误判成致命错误。
@@ -45,11 +45,14 @@ else { Say '  gh    : 未安装（只有 release 模式需要）' }
 if (-not (Test-Path $ReleaseDir)) { Fail ('发布目录不存在：' + $ReleaseDir) }
 Set-Location $ReleaseDir
 
-$tgz = Get-ChildItem -Filter '*.tgz' -File | Select-Object -First 1
-if (-not $tgz) { Fail '找不到 .tgz 资产' }
+$tgz = Get-ChildItem -Path (Join-Path $ReleaseDir 'dist') -Filter '*.tgz' -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $tgz) { $tgz = Get-ChildItem -Filter '*.tgz' -File -ErrorAction SilentlyContinue | Select-Object -First 1 }
+if (-not $tgz) { Fail '找不到 .tgz 资产（先 pnpm pack，产物放 dist/）' }
 Say ('  资产  : ' + $tgz.Name + ' (' + [math]::Round($tgz.Length / 1MB, 2) + ' MB)')
 
-$sums = Get-ChildItem -Filter 'SHA256SUMS-*' -File | Select-Object -First 1
+$sums = Get-ChildItem -Path (Join-Path $ReleaseDir 'docs/releases') -Filter 'SHA256SUMS-*' -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($sums) { Say ('  校验  : ' + $sums.Name) } else { Say '  校验  : SHA256SUMS 缺失' }
 
 # ---------- 1. git 全局配置 ----------
@@ -168,8 +171,10 @@ if ($Mode -eq 'push') {
 # ---------- 4. 发 release ----------
 Step ('创建 release ' + $Tag)
 
-$notesFile = Get-ChildItem -Filter 'RELEASE-NOTES-*.md' -File | Select-Object -First 1
-if (-not $notesFile) { Fail '找不到 RELEASE-NOTES-*.md' }
+$notesFile = Get-ChildItem -Path (Join-Path $ReleaseDir 'docs/releases') -Filter 'RELEASE-NOTES-*.md' -File -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $notesFile) { $notesFile = Get-ChildItem -Filter 'RELEASE-NOTES-*.md' -File -ErrorAction SilentlyContinue | Select-Object -First 1 }
+if (-not $notesFile) { Fail '找不到 RELEASE-NOTES-*.md（放 docs/releases/）' }
 
 $assets = @($tgz.FullName)
 if ($sums) { $assets += $sums.FullName }

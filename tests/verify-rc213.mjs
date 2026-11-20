@@ -9,8 +9,8 @@ import path from "node:path";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const load = (rel) => import(new URL(rel, import.meta.url));
 
-const { repairMessageShapes, trimOversizedHistory } = await load("./lib/rewind.js");
-const rr = await load("./lib/refusal-retry.js");
+const { repairMessageShapes, trimOversizedHistory } = await load("../lib/rewind.js");
+const rr = await load("../lib/refusal-retry.js");
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = "") => {
@@ -123,7 +123,7 @@ ok("3f 重试拿到的是新回答而不是拒绝原文", text.includes("已生�
 /* ── 4. 修剪补丁的语义（#19） ──────────────────────────────────────────
    rc2.12 把宿主唯一的确定性体积阀门整条关掉了（pruneContent → return null）。
    rc2.13 改成只放大预算，并给老安装留迁移路径。 */
-const core = await load("./lib/core.js");
+const core = await load("../lib/core.js");
 const pruner = core.ALL_PATCHES.find((p) => p.id === 19);
 ok("4a #19 存在", Boolean(pruner));
 
