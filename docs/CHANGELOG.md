@@ -1,3 +1,43 @@
+## v1.2.1 — 2026-11-21
+
+让「已写入」真的变成「已生效」。
+
+官方桌面把宿主装在 `resources/app.asar` 里，Electron 按 `app.asar → app → default_app.asar`
+的顺序解析，asar 一定赢。补丁写进 `resources/app` 之后只要 asar 还在，进程加载的仍然是旧代码：
+面板「67 / 67 已写入」是真的，代码层一条补丁都没跑。而 asar 被运行中的进程独占锁定
+（`The process cannot access the file because it is being used by another process`），
+换包只能发生在客户端完整退出的窗口里。
+
+旧实现两处洞：
+- `lib/core.js` 的 `scheduleSealedDesktopRestart()` 在进程内直接 `renameSync`，必然 busy，然后没有下文
+- 唯一的空闲兜底 `scheduleAsarRenameWhenIdle()` 只挂在启动自愈上，而桌面密封 surface 的启动自愈被
+  `lib/settle-policy.js` 的 `settleMayReapply({surface:"desktop",sealed:true}) → false` 禁掉
+  → apply 路径永远排不出空闲换包
+
+新增 `lib/asar-guard.js`：`schtasks` 起脱离进程树的守卫（`/tr` 指向 .cmd 启动器绕开 261 字符上限）
+→ 等安装根下进程全消失（默认 120 分钟，只认 `ExecutablePath` 在该根下的）
+→ 校验 `resources/app` 健康（不健康就原地放弃，宁可跑旧包也不能让客户端起不来）
+→ 需要时把 `app.asar.unpacked` 的原生模块 `robocopy` 叠进 app 树
+→ `Move-Item app.asar → app.asar.bak` → `Start-Process` 重开 exe。
+
+接线三处：
+- `scheduleSealedDesktopRestart()` asar busy 时不再静默放弃，排守卫并回传 `guard`
+- `/dsh-purge/apply` 成功 + 密封 + 有 handoff → 排守卫；响应新增 `asar_swap_guard` / `swap_state`
+- `/dsh-purge/restart` 强退换包的同时排守卫做兜底
+
+面板新增 `swap_state` 三态：`live` / `written_not_live` / `no_asar`，
+「已写入」不再被读成「已生效」。
+
+顺带修 #45（`OFFICIAL_DESKTOP_UPDATE_HANDOFF`）里写死的旧包名：
+`node_modules/dsh-purge/lib/official-update.wscript` 在改名到 `dsh-purge-022` 后不存在，
+宿主 helper 找不到模板会静默回落到 `quitAndInstall`。改为新名优先、旧名兜底的四条路径，
+`lib/compat-0.2.2.js` 同步；老安装缺新路径指纹，补丁会自己重跑一次写进去。
+
+自检新增 `verify-rc215.mjs` 42 项，其中 9 项是真跑（进程持有 → asar 不动；进程退净 → 挪走并留 .bak；
+app 树不健康 → 保留 asar 并 ABORT；PS1 通过 `Parser::ParseFile`）。
+累计 7 组 134 项全过。README / README.zh-CN 同步重写：版本、包名、仓库地址、
+安装命令、适配矩阵、面板读数口径全部更新到 1.2.1。
+
 ## v1.2.0 — 2026-11-20
 
 让插件能被 DSH 的插件面板检查更新、一键升级。
