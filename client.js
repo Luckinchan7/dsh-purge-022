@@ -434,6 +434,8 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"metric.unlocated": "还没定位到本机 Harness",
 			"metric.sealed": "已找到官方客户端，点应用解开",
 			"metric.sealed.count": "待解开",
+			"metric.notLive": "已写入，要完全退出客户端才生效",
+			"metric.notLive.pending": "已写入，守卫在等客户端退出后自动切换",
 			"metric.lost": "补丁已丢失，请重新应用",
 			"metric.lost.count": "已丢失",
 			"rewind.label": "回退",
@@ -772,6 +774,8 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"status.na": "Not for this host",
 			"metric.sealed": "Official client found. Apply to unpack",
 			"metric.sealed.count": "Sealed",
+			"metric.notLive": "Written — quit the app fully to take effect",
+			"metric.notLive.pending": "Written — guard is waiting for the app to quit, then swaps",
 			"metric.lost": "Patches lost — Apply again",
 			"metric.lost.count": "Lost",
 			"status.unlocated": "Not located",
@@ -1833,6 +1837,12 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 			const applied = tally.applied;
 			const pct = located && total ? Math.round((applied / total) * 100) : 0;
 			const metricNotes = [];
+			// 「已写入」和「已生效」是两件事：补丁落到 resources/app 之后，
+			// 只要 app.asar 还在，Electron 按 app.asar → app 的顺序仍然加载旧包。
+			// swap_state 由后端用一句 describeSwapState 给出，面板照读，不自己猜。
+			const swap = (s && s.swap_state) || null;
+			const notLive = !!(swap && swap.state === "written_not_live");
+			if (notLive) metricNotes.push(swap.pending ? t("metric.notLive.pending") : t("metric.notLive"));
 			if (tally.pending) metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
 			if (tally.unmatched) metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
 			if (tally.skipped) metricNotes.push(t("metric.skipShort", { n: tally.skipped }));
