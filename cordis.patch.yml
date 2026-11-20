@@ -40,7 +40,7 @@
 
 # 本体条目已由 profile/cordis.patch.yml 插入，这里只补 inject / config。
 - id: dsh-purge
-  name: dsh-purge
+  name: dsh-purge-022
   inject: [systemPrompt, tools]
   config:
     enabled: true
@@ -69,19 +69,19 @@
 - insert:
     # 演练台：预设 + 技能落地（本插件 lib/redteam）
     - id: dsh-purge-redteam
-      name: dsh-purge/redteam
+      name: dsh-purge-022/redteam
 
     # 无限制模式（nolimit）：预设落地 + 注册到模式下拉（本插件 lib/nolimit）
     # 与 redteam 完全独立：不共用 persona、不共用流程约束，只共用技能目录。
     - id: dsh-purge-nolimit
-      name: dsh-purge/nolimit
+      name: dsh-purge-022/nolimit
 
     # 演练台事实库（SQLite），数据在 $DSH_HOME/redteam
     - id: dsh-purge-redteam-store
-      name: dsh-purge/redteam/store
+      name: dsh-purge-022/redteam/store
       config:
         root: !!js dshHomePath('redteam')
 
     # 演练台 HTTP 桥 POST /redteam/api
     - id: dsh-purge-redteam-ui
-      name: dsh-purge/redteam/ui
+      name: dsh-purge-022/redteam/ui

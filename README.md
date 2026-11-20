@@ -1,7 +1,7 @@
-# dsh-purge 1.1.71-rc2.14.2 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.0 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.3-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.1.71--rc2.14.2-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.14.2)
+[![version](https://img.shields.io/badge/version-1.2.0-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.0)
 [![patches](https://img.shields.io/badge/patches-67%20applied-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
@@ -22,12 +22,12 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（rc2.14.2）** |
-| 0.2.2-rc.3 | rc2.14.2（向后兼容） |
-| 0.2.2-rc.1 | rc2.14.2（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
+| **0.2.2-rc.5** | **本版（1.2.0）** |
+| 0.2.2-rc.3 | 1.2.0（向后兼容） |
+| 0.2.2-rc.1 | 1.2.0（向后兼容）或 [rc2.3](https://github.com/devin667/dsh-purge-022/releases/tag/v1.1.71-rc2.3) |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
-rc2.14.2 沿用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
+1.2.0 沿用「只追加、不替换」的兼容层：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在两个宿主上行为一致**。
 
 ### 为什么需要它
 
@@ -45,7 +45,46 @@ rc2.14.2 沿用「只追加、不替换」的兼容层：新锚点追加到已�
 
 补丁的 `id`、顺序、展示分组、`cordis.patch.yml` 配置项**一个没动**。
 
-### rc2.14.2 新增：适配 0.2.2-rc.5 + 修 #73 与面板口径
+### 1.2.0 新增：可查更新 + 一键升级（包名改为 dsh-purge-022）
+
+DSH 的插件面板「版本 / 重新检查 / 更新到 x.y.z」只认 **npm registry 上的包名 + semver range**。
+源码里的判定：
+
+```js
+// dsh-plugin-manager/lib/index.js
+const parsed = parsedForRegistry(bundle.source);
+if (parsed.kind !== "registry" || parsed.name !== bundle.name || parsed.range?.includes(":") === true)
+  return bundle.name + " is installed neither from a registry under its own name nor from a Git commit";
+```
+
+`file:` 本地 tarball 与 GitHub 安装都拿不到版本列表（后者直接回
+`is installed from Git, which lists no versions`）。而 `dsh-purge` 这个 npm 名已被他人占用
+（`panda11445` 的 `0.0.0-stage` stub 占位包，2026-11-03 发布，2 个文件），
+故改名为 **`dsh-purge-022`**。
+
+**两类 "dsh-purge" 分开处理：**
+
+| 类型 | 举例 | 处理 |
+| --- | --- | --- |
+| 包名 / Cordis 模块名 | `package.json` name、`cordis.patch.yml` 的 `name:`、profile `bundles`、`client.js` 模块 id、`bin` | 改成 `dsh-purge-022` |
+| 内部标识 | `$DSH_HOME/dsh-purge` 配置目录、section 名、`/dsh-purge/*` 路由、组合 `id: dsh-purge*` | **保持原名** |
+
+第二类不能改 —— 改了老用户的 `tuning.json` / `unpacked-asar.json` / `refusal-log.jsonl` 全部失联。
+
+版本号同时从 `1.1.71-rc2.14.2` 改为 `1.2.0`：带 prerelease 段会被面板的
+`versionsNoneInstallable` 当成预发布过滤掉，更新链会断。
+
+安装方式也随之变化：
+
+```bash
+dsh plugin --profile desktop add dsh-purge-022   # registry，可查更新
+```
+
+老用户升级时 profile 里会新旧并存（两份都带 `id: dsh-purge`，Cordis 报 already queued，
+宿主起不来）。`lib/self-insert.js` 的 `removeLegacyRegistrations()` 在启动时自动清理：
+摘掉 `bundles` / `dependencies` 里的旧名、删 `node_modules/dsh-purge`、
+把 `cordis.patch.yml` 里的 `name: dsh-purge` 就地改成新包名。
+
 
 **rc.5 没有改动任何补丁锚点。** 逐条实测：90 条里 70 条可直接改写、5 条已是幂等状态、
 15 条目标缺失（14 条带 `optional`）。语法体检 1261 个 JS 文件全通过。
@@ -351,7 +390,7 @@ tgz 回解包再跑 apply              结果一致，打包无丢失
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.14.2/dsh-purge-1.1.71-rc2.14.2.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.0/dsh-purge-022-1.2.0.tgz
 ```
 
 或者手动：解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge`，然后
@@ -385,7 +424,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge/scripts/ensure-profile-bundl
 
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 19 条补丁的锚点前后对照、红队预设 broken 根因与修法
 - [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— rc2.2 → rc2.3 → … → rc2.13.1 的完整变更链
-- [发行说明 RELEASE-NOTES-1.1.71-rc2.14.2.md](RELEASE-NOTES-1.1.71-rc2.14.2.md) —— release body 原文
+- [发行说明 RELEASE-NOTES-1.2.0.md](RELEASE-NOTES-1.2.0.md) —— release body 原文
 
 ---
 
@@ -595,7 +634,7 @@ tgz re-extracted and re-applied               identical result
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.14.2/dsh-purge-1.1.71-rc2.14.2.tgz
+  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.0/dsh-purge-022-1.2.0.tgz
 ```
 
 ### License

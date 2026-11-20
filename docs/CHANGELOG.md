@@ -1,3 +1,32 @@
+## v1.2.0 — 2026-11-20
+
+让插件能被 DSH 的插件面板检查更新、一键升级。
+
+DSH 的更新面板只认 npm registry 上的包名 + semver range。源码写死了
+`parsed.kind !== "registry"` 就拒绝列出可更新版本，Git 安装直接回
+`is installed from Git, which lists no versions`。而 `dsh-purge` 这个 npm 名被他人占用
+（panda11445 的 0.0.0-stage stub 占位包），故改名为 **dsh-purge-022**。
+
+- **包名改名** `dsh-purge` → `dsh-purge-022`：`package.json` 的 name/bin、`cordis.patch.yml`
+  的 5 处 `name:`、`lib/profile-insert.js` 的 PURGE_NAME 与 INSERT_BLOCK、`client.js` 的
+  模块 id 与 name 常量。**内部标识一概不动** —— `$DSH_HOME/dsh-purge` 配置目录、section 名、
+  `/dsh-purge/*` 路由、组合 `id: dsh-purge*` 全部保留，否则老用户丢配置。
+- **版本号改正式 semver**：`1.1.71-rc2.14.2` → `1.2.0`。带 prerelease 段可能被面板的
+  `versionsNoneInstallable` 过滤掉。
+- **补 `engines.dsh`**：`>=0.2.2-rc.1 <0.2.3-0`。面板的兼容提示读这个字段，
+  原来的自定义 `dshTargets` 不被读取。
+- **postinstall 改运行时自愈**：npm/pnpm 默认不跑第三方包 install 脚本
+  （`Ignored build scripts`），postinstall 里写 bundles / 写 insert 经常没执行。
+  新增 `lib/self-insert.js`，`apply()` 每次启动检查并补，已登记则零写入。
+- **旧包名自动迁移**：`removeLegacyRegistrations()` 清理 `bundles` / `dependencies` /
+  `node_modules` 里的旧名，并把 `cordis.patch.yml` 里的 `name: dsh-purge` 就地改成新包名。
+  最初写成「删除整个 insert 行组」，实测连带删掉了相邻 `- insert:` 块，
+  YAML 报 `BLOCK_AS_IMPLICIT_KEY` 导致宿主起不来；改成只替换 name 值后结构不变。
+  清理前留 `.bak-legacy-<时间戳>`，失败则原文件不动。
+- 新增 `.npmignore`，排除 `.bak` / `verify-rc*` / `SHA256SUMS` / `RELEASE-NOTES` / `.tgz`。
+- 自检 6 组共 92 项全过（新增 verify-rc120 / verify-migration / verify-migration-yaml）。
+- `pnpm pack` 产物 121 文件 / 3.5 MB。补丁表仍 90 条。
+
 ## v1.1.71-rc2.14.2 — 2026-11-19
 
 适配 DeepSeek Harness **0.2.2-rc.5**，并修掉三处让破甲能力或面板读数失真的问题。

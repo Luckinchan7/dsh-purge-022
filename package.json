@@ -1,6 +1,6 @@
 {
-  "name": "dsh-purge",
-  "version": "1.1.71-rc2.14.2",
+  "name": "dsh-purge-022",
+  "version": "1.2.0",
   "description": "DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。含红队模式、无限制模式、无限制模式·子任务；三套预设。rc2.12 加结构性推脱判定（不依赖措辞）、重试前历史净化与采样回暖、surface 按 aiBase 判定，继续加强破甲。Jailbreak for every model — swap prompts per model. 本版为 0.2.2-rc.3 / rc.1 适配分支（满血）。",
   "type": "module",
   "main": "lib/index.js",
@@ -26,7 +26,7 @@
     "./refusal-patterns": "./lib/refusal-patterns.js"
   },
   "bin": {
-    "dsh-purge": "bin/dsh-purge.js"
+    "dsh-purge-022": "bin/dsh-purge.js"
   },
   "files": [
     "lib",
@@ -41,16 +41,14 @@
     "screenshots.json",
     "README.md",
     "README.zh-CN.md",
-    "LICENSE",
-    "verify-rc213.mjs",
-    "verify-rc214.mjs",
-    "verify-rc2142.mjs"
+    "LICENSE"
   ],
   "scripts": {
     "embed-prompt": "node scripts/embed-default-prompt.mjs",
     "build:client": "node scripts/build-client.mjs",
-    "postinstall": "node scripts/ensure-profile-bundle.mjs",
-    "verify": "node verify-rc213.mjs && node verify-rc214.mjs && node verify-rc2142.mjs"
+    "postinstall": "node scripts/ensure-profile-bundle.mjs || node -e \"process.exit(0)\"",
+    "verify": "node verify-rc213.mjs && node verify-rc214.mjs && node verify-rc2142.mjs && node verify-rc120.mjs && node verify-migration.mjs && node verify-migration-yaml.mjs",
+    "ensure-profile": "node scripts/ensure-profile-bundle.mjs"
   },
   "license": "MIT",
   "keywords": [
@@ -91,9 +89,9 @@
       ]
     },
     "install": {
-      "preferred": "tarball",
-      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.1.71-rc2.14.2/dsh-purge-1.1.71-rc2.14.2.tgz",
-      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.1.71-rc2.14.2.zip",
+      "preferred": "registry",
+      "tarball": "https://github.com/devin667/dsh-purge-022/releases/download/v1.2.0/dsh-purge-022-1.2.0.tgz",
+      "zip": "https://github.com/devin667/dsh-purge-022/archive/refs/tags/v1.2.0.zip",
       "git": "git+https://github.com/devin667/dsh-purge-022.git"
     }
   },
@@ -104,7 +102,8 @@
     "@deepseek-ai/cordis": "^4.0.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "dsh": ">=0.2.2-rc.1 <0.2.3-0"
   },
   "dshTarget": "0.2.2-rc.5",
   "dshTargets": [
