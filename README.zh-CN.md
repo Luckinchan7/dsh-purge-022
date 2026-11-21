@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.3</strong></p>
+<p align="center"><strong>Version 1.2.4</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,7 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
-- [1.2.3 修了什么](#123-修了什么换包守卫不再报在等其实没人)
+- [1.2.4 修了什么](#123-修了什么换包守卫不再报在等其实没人)
 - [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)
 - [1.2.1 修了什么](#121-修了什么让已写入真的变成已生效)
 - [安装](#安装)
@@ -98,7 +98,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.3）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.4）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -111,42 +111,64 @@
 
 <a id="whatsnew"></a>
 
-## 1.2.3 修了什么：换包守卫不再「报在等、其实没人」
+## 1.2.4 修了什么：不再闪窗，换完包自己退场
 
-这一版修的是**守卫本身静默死掉，面板还在替它报平安**。
+这一版修的是**你每天都能看见的那件事**：隔一阵闪一个黑框。
 
-### 问题
+### 弹窗是谁
 
-1.2.1 的守卫是一个常驻 120 分钟的 PowerShell 循环：计划任务 `once` 拉起，
-循环里 `if (holders>0) { sleep 2; continue }`。实测它会写下 `holders at start=7`
-之后无声消失 —— Task Scheduler 的 `LastTaskResult` 仍是 0，日志里既没有 `timeout`
-也没有 `abort`，说明没走正常退出路径。
+不是换包本身，是 1.2.1 引入的 `.cmd` 启动器。
 
-而 `swapGuardPending()` 判活只看一件事：锁文件 mtime 是否在 30 分钟内。进程死了、锁还在，
-于是 `describeSwapState()` 一直返回 `pending: true`，面板一直显示
-「已写入，守卫在等客户端退出后自动切换」。**那一晚完全退出客户端，没有任何进程去换包。**
+`schtasks /tr` 有 261 字符上限（超了直接 `0x80004005`），而守卫完整命令行实测 496 字符，
+放不进去。所以 1.2.1~1.2.3 先落一个 `.cmd`，`/tr` 只指向这个短路径。
 
-### 修法：改成短周期轮询
+问题是：`.cmd` 由 Task Scheduler 拉起时**必然分配一个控制台**。任务每 2 分钟触发一次，
+就每 2 分钟闪一下黑框。
 
-| 项 | 1.2.1（旧） | 1.2.3（现在） |
+改成 `.vbs`：
+
+```vbs
+CreateObject("WScript.Shell").Run "<完整 powershell 命令行>", 0, False
+```
+
+- 走 wscript（GUI 子系统），不是 cmd（控制台子系统）
+- 窗口样式 `0` = `SW_HIDE`
+- 任务动作改 `wscript.exe //B //Nologo "<launcher>"`，`//B` 抑制所有脚本弹窗
+
+任务管理器里连 console 都不分配。
+
+### 另一半：换完包要退场
+
+守卫脚本第一句是 `if (-not (Test-Path $AsarPath)) { exit 0 }`，换包完成后每趟触发都立刻退出。
+看起来无害，但**那次触发本身已经发生**：Windows 分配进程、闪一下窗口、什么都不做。
+12 小时 × 每 2 分钟 = 360 次。
+
+新增 `retireGuard(asar)`：删计划任务 + 锁 + deadline + VBS 启动器。
+`queueIdleAsarSwap()` 开头判断 asar 还在不在，不在就直接退役并返回
+`reason: "asar_already_swapped"`。
+
+| 修的东西 | 旧行为 | 现在 |
 |---|---|---|
-| 任务形态 | `once` + 常驻 120 分钟循环 | `MINUTE /mo 2`，每 2 分钟一趟，限时 13 小时 |
-| 单趟行为 | 循环里 `sleep 2; continue` | 判定一次就走：退净就换包，没退净写心跳退出 |
-| 判活依据 | 锁 mtime < 30 分钟 | 锁 mtime < 6 分钟（3 个轮询周期） |
-| 进程死了 | 锁还在 → 假 `pending` | 心跳过期 → `guardLost: true`，提示重新点应用 |
-| 重排 | 30 分钟内不重排 | 心跳过期就清锁重排 |
+| `scheduleSealedDesktopRestart()` 的 `pending` | 无条件 `true` | `guarded?.queued === true` |
+| `lib/core.js` 排守卫 | 同时调 `queueIdleAsarSwap` 和 `scheduleAsarRenameWhenIdle` | 只留前者 |
 
-deadline 独立落到 `app.asar.swap-guard.deadline`，任务被停也不会永远留着锁。
+### 现在的行为
 
-### 顺带修掉两个真 bug
+| 时刻 | 你看到什么 |
+|---|---|
+| 点「应用」 | 补丁写进 `resources/app`，守卫静默排上（无窗口） |
+| 还没退出客户端 | 每 2 分钟一次心跳，全程无窗口 |
+| 完全退出客户端 | 守卫换包 → 删自己的任务 → 重开客户端 |
+| 重开之后 | `swap_state = live`，不需要任何守卫了 |
+| 已经换完再点应用 | 直接退役，不建任何任务 |
 
-1. `GUARD_PS1` 的 marker 正则在 JS 里写了四层转义，生成到 PowerShell 变成
-   「反斜杠 + 字符类」，对真实文件永远不匹配，恒报 `purge markers=False`。
-2. `schtasks /tr` 有 261 字符上限，完整命令行实测 496 字符。1.2.1 用 `.cmd` 中转规避，
-   但写的是 `start "" /b powershell`，`/b` 让子进程继承了 cmd 的控制台生命周期。
-   改成 cmd 里**同步**执行 powershell，任务跟踪的进程树就是守卫本身。
+完整说明见 [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md)。
 
-完整说明见 [1.2.3 发行说明](docs/releases/RELEASE-NOTES-1.2.3.md)。
+---
+
+<a id="123-what"></a>
+
+## 1.2.3 修了什么：换包守卫不再「报在等、其实没人」
 
 ---
 
@@ -176,7 +198,7 @@ deadline 独立落到 `app.asar.swap-guard.deadline`，任务被停也不会永�
 13 处 URL 模板（codeload zip/tar、raw、jsdelivr、api commits/tags/contents）全部改用 `activeRepo()`。
 面板更新卡片下面多一行「更新源」输入框 + 保存 + 恢复默认，改完立刻重探一次，成不成当场看得到。
 
-完整说明见 [1.2.3 发行说明](docs/releases/RELEASE-NOTES-1.2.3.md) 与 [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)。
+完整说明见 [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) 与 [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)。
 
 ---
 
@@ -249,7 +271,7 @@ app.asar  →  app  →  default_app.asar
 ### 升级后怎么生效
 
 ```
-1. 装 1.2.3
+1. 装 1.2.4
 2. 面板点「应用」（补丁写入 resources/app，守卫被排上）
 3. 完全退出 DeepSeek Harness —— 窗口关掉不够，托盘图标也要退
 4. 守卫检测到进程全没了，挪走 app.asar，自己把客户端重新拉起来

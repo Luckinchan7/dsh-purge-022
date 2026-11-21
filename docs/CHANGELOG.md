@@ -1,3 +1,45 @@
+## v1.2.4 — 2026-11-21
+
+守卫不再闪窗，换完包自己退场。
+
+**每 2 分钟闪一次的弹窗（真缺陷，1.2.1 引入）**
+
+1.2.1~1.2.3 用 `.cmd` 当中转启动器去绕开 `schtasks /tr` 的 261 字符上限。
+`.cmd` 由 Task Scheduler 拉起时必然分配一个控制台，每趟轮询都会在屏幕上闪一下
+黑框。用户看到的就是「隔一段时间就有个弹窗」。
+
+改成 `.vbs` + `CreateObject("WScript.Shell").Run cmd, 0, False`：走 wscript
+（GUI 子系统），窗口样式 0 = 完全隐藏，任务管理器里连 console 都不分配。
+任务动作相应改成 `wscript.exe //B //Nologo "<launcher>"`。
+
+**换完包不退役（真缺陷，1.2.1 引入）**
+
+守卫脚本第一句是 `if (-not (Test-Path $AsarPath)) { exit 0 }` —— 换包完成后
+每一趟触发都会立刻退出。看起来无害，但**那次触发本身已经发生**：Windows 为它
+分配进程、闪一下窗口，然后什么也不做。任务要挂 12 小时 × 每 2 分钟 = 360 次。
+所以 asar 已经挪走之后，任务必须删掉，而不是留在那里空转。
+
+新增 `retireGuard(asar)`：删计划任务、删锁、删 deadline、删 VBS 启动器。
+`queueIdleAsarSwap()` 开头就判断 `!fs.existsSync(asar)` → 直接退役并返回
+`reason: "asar_already_swapped"`，不再建任务。
+
+**顺带一个假状态**
+
+`scheduleSealedDesktopRestart()` 原来无条件 `pending: true`。守卫退役时
+`queued === false`，此时再报 pending 就是又一次「面板说在等、实际没任务」。
+改成 `pending: guarded?.queued === true`。
+
+**去掉重复的空闲换包执行者**
+
+`lib/core.js` 原来同时调 `asarGuard.queueIdleAsarSwap()` 和
+`desktop.scheduleAsarRenameWhenIdle()` —— 后者是上一代实现（长驻 PowerShell
+循环 + detached spawn），与 asar-guard 完全重叠，两条都排会同时留下两个后台
+执行者，其中长驻那条被杀后不会收尾。只保留 asar-guard。
+
+**自检**：verify-rc215 从 47 项加到 54 项，新增 7 项直接卡住这次的两个缺陷
+（启动器必须是 .vbs、必须用窗口样式 0、必须走 wscript //B、必须导出 retireGuard、
+asar 已挪走时不得再排守卫、退役必须删计划任务）。
+
 ## v1.2.3 — 2026-11-21
 
 换包守卫不再「报在等、其实没人」。

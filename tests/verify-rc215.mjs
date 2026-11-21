@@ -115,6 +115,17 @@ ok(
   guard.describeSwapState({ exe: "x.exe", asar: "x.asar", runningFromAsar: false }).needFullQuit === false,
 );
 
+// ---- 2b. 静默：启动器不能是 .cmd（每趟轮询会闪控制台黑框）
+const guardSrc = fs.readFileSync(path.join(ROOT, "lib", "asar-guard.js"), "utf8");
+ok("启动器改成 .vbs，不再是 .cmd", guardSrc.includes('dsh-purge-asar-swap-${taskName}.vbs') && !guardSrc.includes('dsh-purge-asar-swap-${taskName}.cmd'));
+ok("用 WScript.Shell.Run 且窗口样式 0", guardSrc.includes('CreateObject("WScript.Shell").Run') && guardSrc.includes(", 0, False"));
+ok("任务动作走 wscript //B", guardSrc.includes("wscript.exe //B //Nologo"));
+ok("VBS 里有双引号转义", guardSrc.includes("function vbsLiteral") && guardSrc.includes('.replace(/"/g, \'""\')'));
+// 换包完成后必须退役：否则任务仍然每 2 分钟触发一次，虽然立刻退出但那次触发本身会闪一下
+ok("导出 retireGuard", typeof guard.retireGuard === "function");
+ok("asar 已挪走时不再排守卫", guardSrc.includes("asar_already_swapped"));
+ok("退役时连计划任务一起删", /export function retireGuard[\s\S]{0,900}schtasks\.exe[\s\S]{0,200}\/delete/.test(guardSrc));
+
 // ---- 3. 守卫脚本语法
 const ps1Text = extractGuardPs1();
 ok("能抽出 GUARD_PS1", ps1Text.length > 500, `${ps1Text.length} 字节`);
