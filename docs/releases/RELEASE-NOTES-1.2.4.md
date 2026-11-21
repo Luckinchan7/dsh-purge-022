@@ -54,6 +54,27 @@ Windows 为它分配进程、闪一下窗口，然后什么也不做。任务要
 
 改成 `pending: guarded?.queued === true`。
 
+## 换包成功后反而报 no_asar
+
+真机实测出来的：`app.asar` 被挪成 `app.asar.bak` 之后，`core.sealedAsarHandoff()`
+内部用 `asarArchiveIsFile()` 判断 —— asar 不在就直接返回 `null`。于是
+`/dsh-purge/status` 走进 `describeSwapState({ asar: undefined })`，报
+`{"state":"no_asar"}`。
+
+**明明已经跑在 `resources\app` 上、补丁全部生效，面板却说不认识这个安装。**
+
+新增 `swapSnapshot({exe, asar, resourcesPath, runningFromAsar})`：从 exe 反推
+`<root>\resources\app.asar`（不要求它此刻存在），再按四种事实合成状态：
+
+| asar | .bak | 报什么 |
+|---|---|---|
+| 在 + 进程跑 asar | — | `written_not_live`，等退出 |
+| 在 + 进程跑 app | — | `live`（不该发生，但报实情） |
+| 不在 | 在 | `live`，`swapped: true` |
+| 不在 | 不在 | `no_asar`（真·非桌面安装） |
+
+`/dsh-purge/status` 与 `/dsh-purge/apply` 都改用它。
+
 ## 去掉重复的执行者
 
 `lib/core.js` 本来同时调 `asarGuard.queueIdleAsarSwap()` 和
@@ -94,8 +115,8 @@ D:\DSH_DESKTOP\resources\app\dsh\node_modules\@deepseek-ai\dsh-tool-fs\lib\index
 
 ## 自检
 
-9 组 189 项全过。verify-rc215 从 47 项加到 54 项，新增 7 项直接卡住这次的
-两个缺陷：
+9 组 204 项全过。verify-rc215 从 47 项加到 64 项，新增 17 项直接卡住这次的
+四个缺陷：
 
 - 启动器必须是 `.vbs`，不得是 `.cmd`
 - 必须 `CreateObject("WScript.Shell").Run` 且窗口样式 `0`
@@ -104,6 +125,8 @@ D:\DSH_DESKTOP\resources\app\dsh\node_modules\@deepseek-ai\dsh-tool-fs\lib\index
 - 必须导出 `retireGuard`
 - asar 已挪走时不得再排守卫
 - 退役必须连计划任务一起删
+- `swapSnapshot` 四种事实（asar 在/不在 × .bak 在/不在）
+- `asarPathForExe` 从 exe 反推 `resources\app.asar`
 
 ## 升级
 

@@ -36,9 +36,29 @@
 循环 + detached spawn），与 asar-guard 完全重叠，两条都排会同时留下两个后台
 执行者，其中长驻那条被杀后不会收尾。只保留 asar-guard。
 
-**自检**：verify-rc215 从 47 项加到 54 项，新增 7 项直接卡住这次的两个缺陷
+**换包成功后反而报 no_asar（真缺陷，1.2.1 引入）**
+
+真机实测：app.asar 被挪成 app.asar.bak 之后，`core.sealedAsarHandoff()` 内部用
+`asarArchiveIsFile()` 判断，asar 不在就直接返回 null。于是 `/dsh-purge/status`
+走进 `describeSwapState({ asar: undefined })`，报 `{state:"no_asar"}` ——
+明明已经跑在 `resources\app` 上、补丁全部生效，面板却说不认识这个安装。
+
+新增 `swapSnapshot({exe, asar, resourcesPath, runningFromAsar})`：从 exe 反推
+`<root>\resources\app.asar`（不要求它此刻存在），再按四种事实合成状态：
+
+| asar | .bak | 报什么 |
+|---|---|---|
+| 在 + 进程跑 asar | — | `written_not_live`，等退出 |
+| 在 + 进程跑 app | — | `live`（不该发生，但报实情） |
+| 不在 | 在 | `live`，`swapped: true` |
+| 不在 | 不在 | `no_asar`（真·非桌面安装） |
+
+`/dsh-purge/status` 与 `/dsh-purge/apply` 都改用它。
+
+**自检**：verify-rc215 从 47 项加到 64 项，新增 17 项直接卡住这次的四个缺陷
 （启动器必须是 .vbs、必须用窗口样式 0、必须走 wscript //B、必须导出 retireGuard、
-asar 已挪走时不得再排守卫、退役必须删计划任务）。
+asar 已挪走时不得再排守卫、退役必须删计划任务、swapSnapshot 四种事实、
+asarPathForExe 从 exe 反推路径）。
 
 ## v1.2.3 — 2026-11-21
 

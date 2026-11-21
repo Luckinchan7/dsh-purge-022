@@ -126,6 +126,31 @@ ok("导出 retireGuard", typeof guard.retireGuard === "function");
 ok("asar 已挪走时不再排守卫", guardSrc.includes("asar_already_swapped"));
 ok("退役时连计划任务一起删", /export function retireGuard[\s\S]{0,900}schtasks\.exe[\s\S]{0,200}\/delete/.test(guardSrc));
 
+// ---- 2c. 换包成功后状态不能再报 no_asar
+// 真机实测：app.asar 被挪成 .bak 之后，sealedAsarHandoff() 因为
+// asarArchiveIsFile() 为 false 直接返回 null，status 把「换好了」误报成 no_asar。
+ok("导出 swapSnapshot", typeof guard.swapSnapshot === "function");
+ok("导出 asarPathForExe", typeof guard.asarPathForExe === "function");
+ok(
+  "asarPathForExe 从 exe 反推 resources/app.asar",
+  guard.asarPathForExe("D:\\DSH_DESKTOP\\DeepSeek Harness.exe") === "D:\\DSH_DESKTOP\\resources\\app.asar",
+);
+const fxSwap = makeFixture("swapped");
+fs.renameSync(path.join(fxSwap.res, "app.asar"), path.join(fxSwap.res, "app.asar.bak"));
+const snapSwapped = guard.swapSnapshot({ asar: path.join(fxSwap.res, "app.asar"), runningFromAsar: false });
+ok("asar 不在但 .bak 在 → live", snapSwapped.state === "live", JSON.stringify(snapSwapped));
+ok("live 时不要求退出", snapSwapped.needFullQuit === false);
+ok("如实报告 swapped=true", snapSwapped.swapped === true);
+const fxGone = makeFixture("gone");
+fs.rmSync(path.join(fxGone.res, "app.asar"));
+const snapGone = guard.swapSnapshot({ asar: path.join(fxGone.res, "app.asar"), runningFromAsar: false });
+ok("asar 与 .bak 都不在 → no_asar", snapGone.state === "no_asar", JSON.stringify(snapGone));
+ok("asar 与 .bak 都不在时 swapped=false", snapGone.swapped === false);
+const fxStill = makeFixture("still");
+const snapStill = guard.swapSnapshot({ asar: path.join(fxStill.res, "app.asar"), runningFromAsar: true });
+ok("asar 还在 + 进程跑 asar → written_not_live", snapStill.state === "written_not_live");
+ok("written_not_live 要求完全退出", snapStill.needFullQuit === true);
+
 // ---- 3. 守卫脚本语法
 const ps1Text = extractGuardPs1();
 ok("能抽出 GUARD_PS1", ps1Text.length > 500, `${ps1Text.length} 字节`);
@@ -196,8 +221,8 @@ const idxSrc = fs.readFileSync(path.join(ROOT, "lib", "index.js"), "utf8");
 ok("index 引入 asar-guard", /import \* as asarGuard from "\.\/asar-guard\.js"/.test(idxSrc));
 ok("apply 成功后排守卫", /if \(shouldRestart && handoff\?\.asar && sealedNow\)/.test(idxSrc));
 ok("apply 返回 asar_swap_guard 字段", idxSrc.includes("asar_swap_guard: asarSwap"));
-ok("apply 返回 swap_state 字段", idxSrc.includes("swap_state: asarGuard.describeSwapState("));
-ok("status 暴露 swap_state", /swap_state: \(\(\) => \{[\s\S]{0,400}describeSwapState/.test(idxSrc));
+ok("apply 返回 swap_state 字段", idxSrc.includes("swap_state: asarGuard.swapSnapshot("));
+ok("status 暴露 swap_state（换包后要报 live，不能报 no_asar）", /swap_state: \(\(\) => \{[\s\S]{0,900}swapSnapshot/.test(idxSrc));
 ok("restart 路由也排守卫生兜底", /asarGuard\.queueIdleAsarSwap\(\{ exe: h\.exe, asar: h\.asar \}\)/.test(idxSrc));
 
 // ---- 8. 包名迁移遗留：宿主里写死的模板路径
