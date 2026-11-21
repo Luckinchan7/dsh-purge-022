@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.1</strong></p>
+<p align="center"><strong>Version 1.2.2</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -26,7 +26,7 @@
 
 > **官方 Web 和官方桌面端都支持。** 官方 `dsh web` 用 profile `web`；官方桌面 EXE（DeepSeek Harness **0.2.2-rc.5**）用 profile `desktop`。两边分开安装、分开点「应用」。
 >
-> **装完必须完整退出一次。** 桌面端把宿主封在 `resources/app.asar` 里，Electron 按 `app.asar → app` 的顺序加载，asar 一定赢。补丁写进 `resources/app` 之后，要等客户端完全退出（托盘也退），守卫才会挪走 asar 并把客户端重新拉起来 —— 那一次加载的才是打过补丁的宿主。详见 [1.2.1 修了什么](#121-修了什么让已写入真的变成已生效)。
+> **装完必须完整退出一次。** 桌面端把宿主封在 `resources/app.asar` 里，Electron 按 `app.asar → app` 的顺序加载，asar 一定赢。补丁写进 `resources/app` 之后，要等客户端完全退出（托盘也退），守卫才会挪走 asar 并把客户端重新拉起来 —— 那一次加载的才是打过补丁的宿主。详见 [1.2.1 修了什么](#121-修了什么让已写入真的变成已生效)与 [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)。
 >
 > 写进 profile 还不会改宿主。点会话标题旁的 **dsh-purge** → **清洗** → **应用**。重启后新开一轮对话，注入才进当前会话。
 >
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)
 - [1.2.1 修了什么](#121-修了什么让已写入真的变成已生效)
 - [安装](#安装)
 - [界面](#界面预览)
@@ -96,8 +97,8 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.1）** |
-| 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.1（向后兼容） |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.2）** |
+| 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
 
@@ -108,6 +109,36 @@
 ---
 
 <a id="whatsnew"></a>
+
+## 1.2.2 修了什么：更新源可切换 + 不再假报「已是最新」
+
+这一版修的是另一类静默失败：**补丁本身没问题，但「检查更新」这条路已经断了，面板却在说一切正常。**
+
+### 假报已最新
+
+`lib/update.js` 的 `describeLane()` 用 `hasRemote: Boolean(sha || versions.length)` 判断远端读没读到。
+但 `versions` 是混合数组 —— 除了远端条目，还有 `ensureRunningVersion()` 为了让当前版本能显示在列表里
+而**本地合成**的一条（`kind: "local"`）。远端三个源全 404 时 `versions.length` 仍然 ≥ 1，
+`hasRemote` 因此为真、不进「取不到远端」分支、`remoteVersion` 取到 `latest?.version` 正是那条本地条目的
+本机版本号 —— 账号被停用、仓库整个消失，面板照常显示「已是最新（1.2.1）」。
+
+现在只把非 `local` 的条目算作远端，读不到时置 `remoteUnreadable: true` 并说明原因：
+
+| state | 判据 | 面板文案 |
+|---|---|---|
+| `missing` | 404，或 403 且 body 含 `account was suspended` | 账号被停用或仓库已改名，可换镜像 |
+| `blocked` | 403 / 429 | API 限流或需要授权，稍后再试 |
+| `offline` | 连不上 | 网络不通或代理没开 |
+
+### 更新源可切换
+
+`$DSH_HOME/dsh-purge/repo.json` 存 `{ repo, at }`，`activeRepo()` 优先读它、非法值回落到内置常量；
+13 处 URL 模板（codeload zip/tar、raw、jsdelivr、api commits/tags/contents）全部改用 `activeRepo()`。
+面板更新卡片下面多一行「更新源」输入框 + 保存 + 恢复默认，改完立刻重探一次，成不成当场看得到。
+
+完整说明见 [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)。
+
+---
 
 ## 1.2.1 修了什么：让「已写入」真的变成「已生效」
 
@@ -178,7 +209,7 @@ app.asar  →  app  →  default_app.asar
 ### 升级后怎么生效
 
 ```
-1. 装 1.2.1
+1. 装 1.2.2
 2. 面板点「应用」（补丁写入 resources/app，守卫被排上）
 3. 完全退出 DeepSeek Harness —— 窗口关掉不够，托盘图标也要退
 4. 守卫检测到进程全没了，挪走 app.asar，自己把客户端重新拉起来
@@ -222,13 +253,13 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 
 ### 方式二：面板一键升级
 
-已经装过 1.2.x 的：插件面板 →「重新检查」→「更新到 1.2.1」。更新源是本仓库的 GitHub Release，不依赖 npm。
+已经装过 1.2.x 的：插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。更新源是本仓库的 GitHub Release，不依赖 npm；仓库所在的账号已被停用，所以这一步现在必须换成镜像地址，详见 [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)。
 
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.1  remoteVersion:1.2.1
-versions: main, v1.2.1, v1.2.0
+ok:true  hasUpdate:false  remoteUnreadable:true   ← 账号封停时的真实读数
+error: 更新源 devin667/dsh-purge-022 打不开 HTTP 404：账号被停用或仓库已改名
 ```
 
 ### 方式三：本地 tarball

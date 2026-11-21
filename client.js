@@ -248,6 +248,13 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"update.reloading": "正在刷新设置页…",
 			"update.dirty": "有新版本，本地有改动未自动覆盖",
 			"update.fail": "更新失败: {error}",
+			"repo.label": "更新源",
+			"repo.hint": "填 owner/repo。账号被封停或仓库改名后，换成镜像仓库就能继续查更新。",
+			"repo.save": "保存更新源",
+			"repo.reset": "恢复默认",
+			"repo.saved": "更新源已改成 {repo}",
+			"repo.savedDefault": "更新源已恢复到默认仓库",
+			"repo.current": "当前更新源：{repo}",
 			"update.timeout": "检测超时，请再点一次检测更新",
 			"update.needRestart": "检测接口未加载，请先重启 dsh 再点检测更新",
 			"update.noBeta": "还没有测试版",
@@ -590,6 +597,13 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"update.reloading": "Refreshing settings…",
 			"update.dirty": "Update available; local edits were not overwritten.",
 			"update.fail": "Update failed: {error}",
+			"repo.label": "Update source",
+			"repo.hint": "Use owner/repo. If the account is suspended or the repo was renamed, point this at a mirror to keep checking for updates.",
+			"repo.save": "Save update source",
+			"repo.reset": "Reset to default",
+			"repo.saved": "Update source set to {repo}",
+			"repo.savedDefault": "Update source reset to the default repo",
+			"repo.current": "Current update source: {repo}",
 			"update.timeout": "Check timed out. Click Check update again.",
 			"update.needRestart": "Update API is not loaded. Restart dsh, then check again.",
 			"update.noBeta": "No beta build yet",
@@ -1391,6 +1405,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 			const [updateInfo, setUpdateInfo] = useState(null);
 			const [channel, setChannel] = useState("stable");
 			const [pick, setPick] = useState({ stable: "", beta: "" });
+			const [repoDraft, setRepoDraft] = useState("");
+			const [repoBusy, setRepoBusy] = useState(false);
 			const actionTicket = useRef(0);
 			const overrideRef = useRef("");
 			const defaultOverrideRef = useRef("");
@@ -1427,6 +1443,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 
 			const applyUpdateInfo = useCallback((d, tr, kind) => {
 				if (d.channel) setChannel(d.channel);
+				if (typeof d.repo === "string" && d.repo) setRepoDraft(d.repo);
 				setUpdateInfo((prev) => {
 					const versions = (d.versions && d.versions.length) ? d.versions : ((prev && prev.versions) || []);
 					return Object.assign({}, prev || {}, d, { versions });
@@ -1544,6 +1561,27 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 				});
 			}, [channel, pick, postUpdate, updateInfo]);
 
+			const saveRepo = useCallback((next) => {
+				const tr = tRef.current;
+				const value = String(next || "").trim();
+				setRepoBusy(true);
+				apiJson("/dsh-purge/update", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ op: "repo", repo: value }),
+				})
+					.then((d) => {
+						if (!d || (d.ok === false && d.error)) throw new Error((d && d.error) || "repo failed");
+						applyUpdateInfo(d, tr, "check");
+						setUpdateNotice({
+							kind: d.error ? "error" : "ok",
+							text: value ? tr("repo.saved", { repo: d.repo || value }) : tr("repo.savedDefault"),
+						});
+					})
+					.catch((e) => setUpdateNotice({ kind: "error", text: updateErrorText(tr, e) }))
+					.finally(() => setRepoBusy(false));
+			}, [applyUpdateInfo]);
+
 			const loadAll = useCallback(() => {
 				const tr = tRef.current;
 				apiJson("/dsh-purge/status")
@@ -1566,6 +1604,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 					.then((d) => {
 						if (!d) return;
 						if (d.channel) setChannel(d.channel);
+						if (typeof d.repo === "string" && d.repo) setRepoDraft(d.repo);
 						setUpdateInfo(d);
 						syncPicks(d);
 					})
@@ -1926,6 +1965,27 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 						renderEdition("beta"),
 					),
 					noticeNode(updateNotice),
+					h("div", { className: "dshp-row", style: { marginTop: 8, gap: 6 } },
+						h("input", {
+							className: "dshp-field",
+							style: { flex: 1, minWidth: 0 },
+							placeholder: "owner/repo",
+							value: repoDraft,
+							disabled: repoBusy || updateBusy,
+							onChange: (e) => setRepoDraft(e.target.value),
+							onKeyDown: (e) => { if (e.key === "Enter" && !repoBusy && !updateBusy) saveRepo(repoDraft); },
+							"aria-label": t("repo.label"),
+						}),
+						h(Btn, { tiny: true, disabled: repoBusy || updateBusy, onClick: () => saveRepo(repoDraft) },
+							repoBusy ? t("update.checking") : t("repo.save")),
+						h(Btn, {
+							tiny: true,
+							disabled: repoBusy || updateBusy || !(updateInfo && updateInfo.override),
+							onClick: () => saveRepo(""),
+						}, t("repo.reset")),
+					),
+					h("p", { className: "dshp-hint", style: { margin: "2px 0 0", color: "var(--dshp-mute)", fontSize: 12 } },
+						t("repo.hint")),
 				),
 				s ? h("div", { className: "dshp-metrics" },
 					h("div", { className: "dshp-metric" },

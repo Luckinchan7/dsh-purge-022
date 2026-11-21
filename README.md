@@ -1,12 +1,16 @@
-# dsh-purge-022 1.2.1 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.2 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.1-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.1)
+[![version](https://img.shields.io/badge/version-1.2.2-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.2)
 [![patches](https://img.shields.io/badge/patches-90%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)
+
+> **更新源现状**：`devin667` 这个 GitHub 账号已被停用，仓库与 Release 对外不可达（匿名 404，带 token 403
+> `Sorry. Your account was suspended`）。1.2.2 因此把更新源做成可切换的：面板「更新源」一栏填任意
+> `owner/repo` 镜像即可继续查更新，本机已装的部分不受影响。
 
 ![banner](docs/banner.svg)
 
@@ -22,11 +26,36 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.1）** |
+| **0.2.2-rc.5** | **本版（1.2.2）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+### 1.2.2 修的是什么：更新源可切换 + 不再假报「已是最新」
+
+**假报已最新（真缺陷，从有更新卡片起就存在）**。`describeLane()` 用
+`hasRemote: Boolean(sha || versions.length)` 判断远端读没读到，而 `versions` 里混着
+`ensureRunningVersion()` 补出来的本机条目（`kind: "local"`）。远端三个源全 404 时
+`versions.length` 仍然 ≥ 1，于是 `hasRemote` 为真、不进「取不到远端」分支、`remoteVersion`
+直接回填本机版本号 —— 账号被停用、仓库整个消失，面板照常显示「已是最新（1.2.1）」。
+
+现在只把非 `local` 条目算作远端，读不到时置 `remoteUnreadable: true` 并说明原因：
+
+| state | 判据 | 面板文案 |
+|---|---|---|
+| `missing` | 404，或 403 且 body 含 `account was suspended` | 账号被停用或仓库已改名，可换镜像 |
+| `blocked` | 403 / 429 | API 限流或需要授权，稍后再试 |
+| `offline` | 连不上 | 网络不通或代理没开 |
+
+**换更新源**。`$DSH_HOME/dsh-purge/repo.json` 存 `{ repo, at }`，`activeRepo()` 优先读它、
+非法值回落到内置常量；13 处 URL 模板（codeload zip/tar、raw、jsdelivr、api commits/tags/contents）
+全部改用 `activeRepo()`。面板更新卡片下面多一行「更新源」输入框 + 保存 + 恢复默认，
+改完立刻重探一次，成不成当场看得到。
+
+**改名遗留**。1.2.0 把包名改成 `dsh-purge-022`，但 `findPurgeProfiles()` 还在查
+`dependencies["dsh-purge"]`、`profilePluginDir()` 只找 `node_modules/dsh-purge`，改名后
+永远返回空数组，更新计划退化成「只更新当前这份 checkout」。现在两种包名都认。
 
 ### 1.2.1 修的是什么：让「已写入」真的变成「已生效」
 
@@ -78,7 +107,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.1 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.2 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -104,11 +133,18 @@ if (parsed.kind !== "registry" || parsed.name !== bundle.name || parsed.range?.i
 
 版本号同时从 `1.1.71-rc2.14.2` 改为 `1.2.0`：带 prerelease 段会被面板的 `versionsNoneInstallable` 当成预发布过滤掉，更新链会断。
 
-内置的更新检查读本仓库的 GitHub Release（`lib/update.js` 的 `checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()`），不依赖 npm。实测：
+内置的更新检查读本仓库的 GitHub Release（`lib/update.js` 的 `checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()`），不依赖 npm。1.2.2 起更新源可切换，远端读不到会明确报原因而不是报「已是最新」。实测（账号封停状态下）：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.1  remoteVersion:1.2.1
-versions: main, v1.2.1, v1.2.0
+ok:true  hasUpdate:false  remoteUnreadable:true
+error: 更新源 devin667/dsh-purge-022 打不开 HTTP 404：账号被停用或仓库已改名。可在面板把更新源换成镜像仓库。
+repo:  devin667/dsh-purge-022  override:false
+```
+
+换成可读镜像后立刻恢复：
+
+```
+ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:false
 ```
 
 老用户升级时 profile 里会新旧并存（两份都带 `id: dsh-purge`，Cordis 报 already queued，宿主起不来）。`lib/self-insert.js` 的 `removeLegacyRegistrations()` 在启动时自动清理：摘掉 `bundles` / `dependencies` 里的旧名、删 `node_modules/dsh-purge`、把 `cordis.patch.yml` 里的 `name: dsh-purge` 就地改成新包名。
@@ -135,11 +171,13 @@ versions: main, v1.2.1, v1.2.0
 
 ### 安装
 
+> 仓库所在的 GitHub 账号已被停用，下面的 Release 直链目前 404。已经有 tarball 的话按「本地文件」装；要装新版就从镜像仓库或本机 `dist/` 取包。
+
 **方式一：Release tarball（最稳）**
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  <镜像仓库>/releases/download/v1.2.2/dsh-purge-022-1.2.2.tgz
 ```
 
 本地文件同理：
@@ -147,10 +185,10 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  "$p\.local-packages\dsh-purge-022-1.2.2.tgz"
 ```
 
-**方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新到 1.2.1」。
+**方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。仓库地址没变时这一步会报「账号被停用或仓库已改名」，不是网络问题。
 
 **方式三：手动**。解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge-022`，然后
 
@@ -167,7 +205,7 @@ node ~/.dsh/profiles/desktop/node_modules/dsh-purge-022/scripts/ensure-profile-b
 - `#56 #77` 在 **0.2.2-rc.3 及以后不可用** —— 宿主已删除 rewind 功能，不是补丁的问题。
 - `#45 #46 #82 #83 #84` 要 `detectSurface()` 认真实桌面安装位；纯解包树里显示 `na`，属预期。
 - `@deepseek-ai/dsh-workflow-worker-thread` 在 rc.3 及以后不存在，红队预设里那一行是 `disabled: true`，不影响注册。
-- **代码层补丁必须换包才生效**（见上文 1.2.1）。提示词层（破甲文案）不走 asar，装好就活。
+- **代码层补丁必须换包才生效**（见上文 1.2.1 节）。提示词层（破甲文案）不走 asar，装好就活。
 - macOS 未实测。
 
 ### 界面预览
@@ -192,9 +230,17 @@ verify-rc120          22 passed    包名迁移 / engines / 自愈
 verify-migration      21 passed    旧包名清理
 verify-migration-yaml  8 passed    cordis.patch.yml 结构
 verify-rc215          42 passed    空闲换包守卫（9 项真跑）
+verify-rc216          48 passed    更新源切换 / 假报已最新 / 两种包名
                      ─────────
-                     134 项全过
+                     182 项全过
 ```
+
+`verify-rc216` 里那几项联网断言：
+
+- 封停账号下 `probeRepo` 必须报 `missing`/`404`，不能报 `ok`（网络抖动时允许降级成 `offline`，此时跳过状态码断言）
+- `checkUpdate` 必须置 `remoteUnreadable: true`、`hasRemote: false`，且 `remoteVersion` 不回填本地版本
+- 换成 `nodejs/node` 后 `hasRemote` 恢复、`override: true`
+- 恢复默认后 `repo.json` 被删、`override: false`
 
 `verify-rc215` 里真跑的那 9 项：
 
@@ -205,7 +251,8 @@ verify-rc215          42 passed    空闲换包守卫（9 项真跑）
 
 ### 文档
 
-- [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫的完整来龙去脉
+- [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新的完整来龙去脉
+- [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 锚点前后对照、红队预设 broken 根因与修法
 - [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— 完整变更链
 - [中文详解 README.zh-CN.md](README.zh-CN.md) —— 安装、三套预设、排错、路径探测
@@ -222,11 +269,37 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.1)** |
+| **0.2.2-rc.5** | **this release (1.2.2)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
+
+### What 1.2.2 fixes: switchable update source, and no more fake "up to date"
+
+`describeLane()` decided whether the remote was readable with
+`hasRemote: Boolean(sha || versions.length)` — but `versions` includes the local row that
+`ensureRunningVersion()` synthesizes (`kind: "local"`). With all three remote sources returning
+404, `versions.length` was still ≥ 1, so `hasRemote` stayed true, the "remote unreadable" branch
+never ran, and `remoteVersion` fell back to the local version string. A suspended account with a
+fully vanished repo still rendered "Up to date (1.2.1)".
+
+Now only non-`local` rows count as remote; when the remote is unreadable the result carries
+`remoteUnreadable: true` plus a reason that distinguishes the three cases:
+
+| state | Signal | Message |
+|---|---|---|
+| `missing` | 404, or 403 whose body contains `account was suspended` | account suspended or repo renamed — point it at a mirror |
+| `blocked` | 403 / 429 | rate-limited or needs auth, retry later |
+| `offline` | cannot connect | network or proxy down |
+
+`$DSH_HOME/dsh-purge/repo.json` holds `{ repo, at }`; `activeRepo()` prefers it and falls back to
+the built-in constant on invalid input. All 13 URL templates (codeload zip/tar, raw, jsdelivr,
+api commits/tags/contents) now use `activeRepo()`. The panel grows an update-source input plus
+Save and Reset; saving re-probes immediately so the result is visible right away.
+
+Also fixed: `findPurgeProfiles()` and `profilePluginDir()` still only recognized the pre-1.2.0
+package name, so after the rename the update plan silently degraded to "update this checkout only".
 
 ### What 1.2.1 fixes: "written" becoming "live"
 
@@ -272,7 +345,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.1 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.2 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -297,11 +370,18 @@ The second kind must not change — renaming them orphans existing `tuning.json`
 
 The version also went from `1.1.71-rc2.14.2` to `1.2.0`: a prerelease segment gets filtered out by the panel's `versionsNoneInstallable`, breaking the update chain.
 
-The built-in updater reads this repo's GitHub Releases (`checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()` in `lib/update.js`) and does not depend on npm:
+The built-in updater reads this repo's GitHub Releases (`checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()` in `lib/update.js`) and does not depend on npm. From 1.2.2 the source is switchable, and an unreadable remote reports why instead of claiming "up to date". Measured with the account suspended:
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.1  remoteVersion:1.2.1
-versions: main, v1.2.1, v1.2.0
+ok:true  hasUpdate:false  remoteUnreadable:true
+error: update source devin667/dsh-purge-022 returned HTTP 404 — account suspended or repo renamed
+repo:  devin667/dsh-purge-022  override:false
+```
+
+Pointing it at a readable mirror restores the check immediately:
+
+```
+ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:false
 ```
 
 ### Patch table
@@ -317,12 +397,14 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ### Install
 
+> The GitHub account behind this repo is suspended, so the Release URLs below currently 404. If you already have a tarball, install from the local file; to get a newer build, pull it from a mirror repo or from `dist/` on the machine that built it.
+
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  <mirror-repo>/releases/download/v1.2.2/dsh-purge-022-1.2.2.tgz
 ```
 
-Or, if already on 1.2.x: plugin panel → Check again → Update to 1.2.1.
+Or, if already on 1.2.x: plugin panel → set the update source to a mirror → Save → Check again → Update. With the original repo it will report "account suspended or repo renamed", which is not a network problem.
 
 Then **fully quit the host** (tray included), reopen, and click **dsh-purge → Clean → Apply**.
 
@@ -338,8 +420,9 @@ verify-rc120          22 passed
 verify-migration      21 passed
 verify-migration-yaml  8 passed
 verify-rc215          42 passed   (9 of them execute the real guard)
+verify-rc216          48 passed   (live probe + repo switch + both package names)
                      ─────────
-                     134 passed, 0 failed
+                      182 passed, 0 failed
 ```
 
 ### License
@@ -348,6 +431,7 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 
 ### Docs
 
-- [RELEASE-NOTES-1.2.1.md](docs/releases/RELEASE-NOTES-1.2.1.md) — the full idle-swap story
+- [RELEASE-NOTES-1.2.2.md](docs/releases/RELEASE-NOTES-1.2.2.md) — switchable source and the fake up-to-date bug
+- [RELEASE-NOTES-1.2.1.md](docs/releases/RELEASE-NOTES-1.2.1.md) — the idle-swap story
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors, red-team preset `registered-broken` root cause
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) — full change chain

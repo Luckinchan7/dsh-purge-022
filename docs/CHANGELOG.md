@@ -1,3 +1,49 @@
+## v1.2.2 — 2026-11-21
+
+更新源可以被换掉，以及「仓库没了」不再伪装成「已是最新」。
+
+**假报已最新（真缺陷，从有更新卡片起就存在）**
+
+`lib/update.js` 的 `describeLane()` 用 `hasRemote: Boolean(sha || versions.length)` 判断远端读没读到，
+而 `versions` 里混着 `ensureRunningVersion()` 补出来的本机条目（`kind: "local"`）。
+远端三个源全 404 时 `versions.length` 仍然 ≥ 1，于是：
+
+- `hasRemote` 为真 → 不走「取不到远端」分支 → 不报错
+- `remoteVersion` 取 `latest?.version`，取到的就是本机版本号
+
+结果：GitHub 账号被停用、仓库整个消失，面板照常显示「已是最新（1.2.1）」。
+现在只把非 `local` 的条目算作远端；远端真读不到时置 `remoteUnreadable: true` 并带上可读原因。
+
+**分清三种失败**
+
+原先所有远端失败都归成一句「无法读取 GitHub（网络不通或 API 限流）」，但三种情况的处置完全不同。
+新增 `probeRepo(repo)`：探 `api.github.com/repos/<repo>` 与网页两条路径，按信息量取结果
+（`requestBuffer` 对非 2xx 直接抛 `http <code>`，状态码只能从 message 里取）。
+
+| state | 判据 | 面板文案 |
+| --- | --- | --- |
+| `missing` | 404，或 403 且 body 含 `account was suspended` | 账号被停用或仓库已改名，可换镜像 |
+| `blocked` | 403 / 429 | API 限流或需要授权，稍后再试 |
+| `offline` | 连不上 | 网络不通或代理没开 |
+
+**更新源可切换**
+
+- `$DSH_HOME/dsh-purge/repo.json` 存 `{ repo, at }`；`activeRepo()` 优先读它，非法值回落到常量
+- 所有 URL 模板从 `${REPO}` 改成 `${activeRepo()}`（13 处：codeload zip/tar、raw、jsdelivr、api commits/tags/contents）
+- `writeRepoOverride(repo)`：传空串或默认值即删除文件回到默认；非法格式抛 `仓库要写成 owner/repo`
+- `handleUpdateOp({ op: "repo" })` 改完立刻重探一次，响应带 `repoChanged: true`
+- 面板在更新卡片下加一行输入框 + 保存 + 恢复默认，中英文案 6 条
+
+**改名遗留：profile 认不到**
+
+1.2.0 把包名改成 `dsh-purge-022`，但 `findPurgeProfiles()` 只查 `dependencies["dsh-purge"]`、
+`profilePluginDir()` 只找 `node_modules/dsh-purge`，改名后永远返回空数组 —— 更新计划因此退化成
+"只更新当前这份 checkout"。新增 `PACKAGE_NAMES = ["dsh-purge-022", "dsh-purge"]` 与 `packageSpec(pkg)`，
+`pinInstalledSpec()` 也改用命中的那个键。
+
+自检：`tests/verify-rc216.mjs` 48 项（含真联网探一次封停账号、换成 `nodejs/node` 验证恢复、两种包名的 profile fixture）。
+累计 8 组 182 项全过。
+
 ## v1.2.1 — 2026-11-21
 
 让「已写入」真的变成「已生效」。
