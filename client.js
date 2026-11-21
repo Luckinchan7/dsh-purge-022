@@ -443,6 +443,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"metric.sealed.count": "待解开",
 			"metric.notLive": "已写入，要完全退出客户端才生效",
 			"metric.notLive.pending": "已写入，守卫在等客户端退出后自动切换",
+			"metric.notLive.lost": "已写入，但换包守卫已失效（任务被停或机器重启过），重新点应用即可重排",
 			"metric.lost": "补丁已丢失，请重新应用",
 			"metric.lost.count": "已丢失",
 			"rewind.label": "回退",
@@ -790,6 +791,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"metric.sealed.count": "Sealed",
 			"metric.notLive": "Written — quit the app fully to take effect",
 			"metric.notLive.pending": "Written — guard is waiting for the app to quit, then swaps",
+			"metric.notLive.lost": "Written, but the swap guard is gone (task stopped or machine rebooted). Click Apply again to re-arm",
 			"metric.lost": "Patches lost — Apply again",
 			"metric.lost.count": "Lost",
 			"status.unlocated": "Not located",
@@ -1881,7 +1883,13 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 			// swap_state 由后端用一句 describeSwapState 给出，面板照读，不自己猜。
 			const swap = (s && s.swap_state) || null;
 			const notLive = !!(swap && swap.state === "written_not_live");
-			if (notLive) metricNotes.push(swap.pending ? t("metric.notLive.pending") : t("metric.notLive"));
+			if (notLive) {
+				// pending = 守卫有心跳；guardLost = 心跳过期（任务被停/被杀/重启过）。
+				// 两者都不能少：只报「在等」会让用户白等一晚上。
+				if (swap.guardLost) metricNotes.push(t("metric.notLive.lost"));
+				else if (swap.pending) metricNotes.push(t("metric.notLive.pending"));
+				else metricNotes.push(t("metric.notLive"));
+			}
 			if (tally.pending) metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
 			if (tally.unmatched) metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
 			if (tally.skipped) metricNotes.push(t("metric.skipShort", { n: tally.skipped }));

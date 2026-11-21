@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.2 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.3 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.2-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.2)
+[![version](https://img.shields.io/badge/version-1.2.3-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.3)
 [![patches](https://img.shields.io/badge/patches-90%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.3 发行说明](docs/releases/RELEASE-NOTES-1.2.3.md)
 
 > **更新源现状**：`devin667` 这个 GitHub 账号已被停用，仓库与 Release 对外不可达（匿名 404，带 token 403
 > `Sorry. Your account was suspended`）。1.2.2 因此把更新源做成可切换的：面板「更新源」一栏填任意
@@ -26,11 +26,35 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.2）** |
+| **0.2.2-rc.5** | **本版（1.2.3）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+### 1.2.3 修的是什么：换包守卫不再「报在等、其实没人」
+
+1.2.1 的守卫是一个常驻 120 分钟的 PowerShell 循环。实测它会写下 `holders at start=7`
+之后无声消失 —— Task Scheduler 的 `LastTaskResult` 仍是 0，日志里既没有 `timeout`
+也没有 `abort`，说明没走正常退出路径。
+
+而 `swapGuardPending()` 判活只依据锁文件 mtime 是否在 30 分钟内：进程死了、锁还在，
+于是 `describeSwapState()` 一直返回 `pending: true`，面板一直显示「守卫在等客户端退出后自动切换」。
+**用户当晚完全退出客户端，没有任何进程去换包。**
+
+改成短周期轮询后：
+
+| 项 | 1.2.1（旧） | 1.2.3（现在） |
+|---|---|---|
+| 任务形态 | `once` + 常驻 120 分钟循环 | `MINUTE /mo 2`，每 2 分钟一趟，限时 13 小时 |
+| 单趟行为 | 循环里 `sleep 2; continue` | 判定一次就走：退净就换包，没退净写心跳退出 |
+| 判活依据 | 锁 mtime < 30 分钟 | 锁 mtime < 6 分钟（3 个轮询周期） |
+| 进程死了 | 锁还在 → 假 `pending` | 心跳过期 → `guardLost: true`，提示重新点应用 |
+| 重排 | 30 分钟内不会重排 | 心跳过期就清锁重排 |
+
+顺带修掉两个真 bug：`GUARD_PS1` 的 marker 正则四层转义（到 PowerShell 里永远不匹配，
+恒报 `purge markers=False`）；`schtasks /tr` 261 字符上限下 `.cmd` 中转用了 `start /b`，
+让子进程继承了 cmd 的控制台生命周期。
 
 ### 1.2.2 修的是什么：更新源可切换 + 不再假报「已是最新」
 
@@ -107,7 +131,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.2 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.3 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -177,7 +201,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <镜像仓库>/releases/download/v1.2.2/dsh-purge-022-1.2.2.tgz
+  <镜像仓库>/releases/download/v1.2.3/dsh-purge-022-1.2.3.tgz
 ```
 
 本地文件同理：
@@ -185,7 +209,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.2.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.3.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。仓库地址没变时这一步会报「账号被停用或仓库已改名」，不是网络问题。
@@ -251,7 +275,8 @@ verify-rc216          48 passed    更新源切换 / 假报已最新 / 两种包
 
 ### 文档
 
-- [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新的完整来龙去脉
+- [1.2.3 发行说明](docs/releases/RELEASE-NOTES-1.2.3.md) —— 换包守卫假 pending 的完整来龙去脉
+- [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新
 - [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫
 - [适配说明 docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) —— 锚点前后对照、红队预设 broken 根因与修法
 - [变更日志 docs/CHANGELOG.md](docs/CHANGELOG.md) —— 完整变更链
@@ -269,11 +294,35 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.2)** |
+| **0.2.2-rc.5** | **this release (1.2.3)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
+
+### What 1.2.3 fixes: the swap guard no longer claims to be waiting when nothing is
+
+The 1.2.1 guard was a resident 120-minute PowerShell loop. Measured on a real install, it
+logged `holders at start=7` and then vanished silently — Task Scheduler's `LastTaskResult`
+stayed 0, and the log had neither `timeout` nor `abort`, so it never took a normal exit path.
+
+Meanwhile `swapGuardPending()` decided liveness from one thing only: whether the lock file's
+mtime was within 30 minutes. Dead process, lock still there, so `describeSwapState()` kept
+returning `pending: true` and the panel kept saying the guard was waiting. **The user fully
+quit the app that evening and nothing swapped the asar.**
+
+| | 1.2.1 (old) | 1.2.3 (now) |
+|---|---|---|
+| Task shape | `once` + resident 120-min loop | `MINUTE /mo 2`, one tick every 2 min, 13 h cap |
+| Per tick | `sleep 2; continue` inside the loop | Decide once: swap if clear, else heartbeat and exit |
+| Liveness | lock mtime < 30 min | lock mtime < 6 min (3 poll cycles) |
+| Guard died | lock remains → fake `pending` | heartbeat expires → `guardLost: true`, re-arm prompt |
+| Re-arm | blocked for 30 minutes | stale heartbeat clears the lock and re-queues |
+
+Two real bugs fixed along the way: the `GUARD_PS1` marker regex was escaped four times
+(which reaches PowerShell as "backslash + character class" and never matches, so it always
+reported `purge markers=False`), and the `.cmd` shim used `start /b`, letting the child
+inherit the cmd console lifetime.
 
 ### What 1.2.2 fixes: switchable update source, and no more fake "up to date"
 
@@ -345,7 +394,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.2 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.3 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -401,7 +450,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <mirror-repo>/releases/download/v1.2.2/dsh-purge-022-1.2.2.tgz
+  <mirror-repo>/releases/download/v1.2.3/dsh-purge-022-1.2.3.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → set the update source to a mirror → Save → Check again → Update. With the original repo it will report "account suspended or repo renamed", which is not a network problem.
@@ -431,6 +480,7 @@ MIT. Upstream: 小杨 (original dsh-purge), 巴里啊啊 (0.2.1-rc.2 compat bran
 
 ### Docs
 
+- [RELEASE-NOTES-1.2.3.md](docs/releases/RELEASE-NOTES-1.2.3.md) — the fake-pending swap guard
 - [RELEASE-NOTES-1.2.2.md](docs/releases/RELEASE-NOTES-1.2.2.md) — switchable source and the fake up-to-date bug
 - [RELEASE-NOTES-1.2.1.md](docs/releases/RELEASE-NOTES-1.2.1.md) — the idle-swap story
 - [docs/COMPAT-0.2.2.md](docs/COMPAT-0.2.2.md) — before/after anchors, red-team preset `registered-broken` root cause

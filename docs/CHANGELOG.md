@@ -1,3 +1,49 @@
+## v1.2.3 — 2026-11-21
+
+换包守卫不再「报在等、其实没人」。
+
+**假 pending（真缺陷，1.2.1 引入）**
+
+1.2.1 的守卫是一个常驻 120 分钟的 PowerShell 循环：计划任务 `once` 拉起，循环里
+`if (holders>0) { sleep 2; continue }`。实测这个进程会在写下 `holders at start=7`
+之后无声消失 —— Task Scheduler 的 `LastTaskResult` 仍是 0，日志里既没有 timeout
+也没有 abort，说明它不是走正常退出路径的。
+
+而 `swapGuardPending()` 判活的依据只有一条：锁文件 mtime 是否在 30 分钟内。
+进程死了、锁还在，于是：
+
+- `describeSwapState()` 一直返回 `pending: true`
+- 面板一直显示「已写入，守卫在等客户端退出后自动切换」
+- 用户当晚退出客户端后，没有任何执行者会去换包
+
+**改成短周期轮询**
+
+- 计划任务用 `/sc MINUTE /mo 2 /du 13:00`，每 2 分钟触发一趟，全程限时 13 小时；
+- 每趟只跑一次判定：读锁 → 看进程退净没 → 退净就换包，没退净就写心跳立刻退出；
+- 锁文件 mtime 就是心跳，`swapGuardPending()` 只认 **6 分钟**（3 个轮询周期）内的；
+- 心跳过期但锁还在 = 守卫没了，`queueIdleAsarSwap()` 会自己清掉重排；
+- 新增 `guardLost` 字段，面板区分「在等（pending）」「守卫已失效（guardLost）」两种状态，
+  后者提示「重新点应用即可重排」；
+- deadline 独立落到 `app.asar.swap-guard.deadline`，不会因为任务被停而永远留着。
+
+**顺带修掉两个真 bug**
+
+1. `GUARD_PS1` 里的 marker 正则写成了 `'\\\\[dsh-purge\\\\]'`（JS 里四层转义），
+   生成到 PowerShell 里是 `'\\[dsh-purge\\]'`，语义变成「反斜杠 + 字符类」，
+   对真实文件永远不匹配 —— 于是恒报 `purge markers=False`。
+   改成单层转义后实测 `MATCH=TRUE`。
+2. `schtasks /tr` 上限 261 字符，而完整命令行实测 496 字符。1.2.1 用 `.cmd` 中转
+   规避，但中转层写的是 `start "" /b powershell`，`/b` 会让子进程继承 cmd 的控制台
+   生命周期。改成 cmd 里**同步**执行 powershell，任务跟踪的进程树就是守卫本身。
+
+**验证**
+
+- 真机 `holders=6/7` 时：每 2 分钟刷新心跳，`asar` 原地不动（209,083,008 B 未变）；
+- fixture 有 holder：日志 `waiting; holders=1`，asar 与 .bak 都不动，心跳 5 秒新；
+- fixture holder 退出后：下一个 tick 自动 `ready to swap; purge markers=True` →
+  `asar moved to app.asar.bak` → `relaunched`，锁与 deadline 一起清掉；
+- 任务 `interval=PT2M / duration=PT13H / lastResult=0`，无残留 powershell 进程。
+
 ## v1.2.2 — 2026-11-21
 
 更新源可以被换掉，以及「仓库没了」不再伪装成「已是最新」。

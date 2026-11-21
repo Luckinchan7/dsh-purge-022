@@ -131,35 +131,44 @@ ok("守卫脚本 PowerShell 语法通过", parse === "0", `parse errors=${parse}
 // 这两个是上一版的真实缺陷：路径分隔符拼成双反斜杠会让 holder 判定永远为 0。
 ok("不再用字面双反斜杠拼 rootNorm", !ps1Text.includes("+ '\\\\'"));
 ok("用 [char]92 拼分隔符", ps1Text.includes("[char]92"));
-ok("守卫会记录 holders at start", ps1Text.includes("holders at start"));
+ok("守卫每趟报告 holders", ps1Text.includes("waiting; holders="));
 
-// ---- 4. 进程还在 → 不挪
+// ---- 4. 进程还在 → 不挪（单趟轮询：写心跳就退出）
 const fxBusy = makeFixture("busy");
 const busyExe = path.join(fxBusy.dir, "Fake.exe");
 fs.copyFileSync("C:\\Windows\\System32\\ping.exe", busyExe);
 const { spawn } = await import("node:child_process");
 const holder = spawn(busyExe, ["-n", "30", "127.0.0.1"], { stdio: "ignore", windowsHide: true, detached: false });
 await new Promise((r) => setTimeout(r, 1200));
-const busyRun = runGuard(ps1, fxBusy, { waitMinutes: 0, exe: busyExe });
+const busyRun = runGuard(ps1, fxBusy, { waitMinutes: 5, exe: busyExe });
 holder.kill();
 ok("有进程持有时 asar 原地不动", busyRun.asar === true);
 ok("有进程持有时不留 .bak", busyRun.bak === false);
-ok("日志报告 holders at start>=1", /holders at start=([1-9]\d*)/.test(busyRun.log), busyRun.log.split("\n")[1] || "");
+ok("日志报告 waiting; holders>=1", /waiting; holders=([1-9]\d*)/.test(busyRun.log), busyRun.log.trim().split("\n").pop() || "");
 
 // ---- 5. 进程退净 → 挪走并留 .bak
 const fxFree = makeFixture("free");
-const freeRun = runGuard(ps1, fxFree, { waitMinutes: 1 });
+const freeRun = runGuard(ps1, fxFree, { waitMinutes: 5 });
 ok("进程退净后 asar 被挪走", freeRun.asar === false);
 ok("留下 app.asar.bak 以便回滚", freeRun.bak === true);
-ok("日志记录 health ok", freeRun.log.includes("health ok"));
+ok("日志记录 ready to swap", freeRun.log.includes("ready to swap"));
 ok("日志记录 asar moved", freeRun.log.includes("asar moved"));
 
 // ---- 6. app 树不健康 → 拒绝挪（宁可旧包能跑，也不能让客户端起不来）
 const fxBroken = makeFixture("broken", { healthy: false });
-const brokenRun = runGuard(ps1, fxBroken, { waitMinutes: 1 });
+const brokenRun = runGuard(ps1, fxBroken, { waitMinutes: 5 });
 ok("app 树不健康时 asar 保留", brokenRun.asar === true);
 ok("app 树不健康时不产生 .bak", brokenRun.bak === false);
 ok("日志明确 ABORT 原因", brokenRun.log.includes("ABORT: resources/app incomplete"), brokenRun.log.trim().split("\n").pop() || "");
+
+// ---- 6b. 单趟设计：守卫不常驻，跑完一趟就退出（1.2.1 的长驻循环会无声消失）
+const ps1Src = ps1Text;
+ok("守卫不再用 while 长驻循环", !/while\s*\(\s*\(Get-Date\)/.test(ps1Src));
+ok("守卫每趟写心跳 Beat", ps1Src.includes("function Beat"));
+ok("心跳靠改锁 mtime", ps1Src.includes("$f.LastWriteTime = Get-Date"));
+ok("deadline 过期会自己收尾", ps1Src.includes("deadline passed"));
+// marker 正则在 PowerShell 里必须是单层转义，双层会永远不匹配
+ok("marker 正则单层转义", ps1Src.includes("if ($t -match '\\[dsh-purge\\]')"));
 
 // ---- 7. 接线：apply 路径必须真的能排出守卫
 const core = await import(new URL("./lib/core.js", `file:///${ROOT.replace(/\\/g, "/")}/`).href);
