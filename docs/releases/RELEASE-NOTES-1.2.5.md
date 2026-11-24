@@ -72,8 +72,12 @@ dsh plugin --profile desktop add --ignore-scripts \
 
 ## 自检
 
-9 组 204 项全过：migration-yaml 8 / migration 21 / rc120 22 / rc213 26 /
-rc214 6 / rc2142 9 / rc215 64 / rc216 48 / pack。
+9 组 210 项全过：migration-yaml 8 / migration 21 / rc120 22 / rc213 26 /
+rc214 6 / rc2142 9 / rc215 64 / rc216 54 / pack。
+
+`verify-rc216` 从 48 项加到 54 项。原先它把「本仓库必须不可读」写成硬断言
+（`probe.state !== "ok"`），迁到新账号后这条恒假；改为探一个不存在的 fixture
+仓库验错误路径，再单加一组验默认源可读、`remoteVersion === "1.2.5"`。
 
 ## 回滚
 

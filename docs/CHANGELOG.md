@@ -1,5 +1,67 @@
-## v1.2.5 — 2026-11-25
+## v1.2.6 — 2026-11-25
 
+更新检查重新能报版本号：补上出网代理。
+
+**用户看到的现象**
+
+迁到新账号后仓库确实可读，但面板「最新版本」一栏显示的是提交号（`00ca3f4`），不是 `1.2.6`。
+
+**根因**
+
+`remotePackageVersion()` 按顺序试四个源拿 `package.json` 里的 `version`：
+
+| 源 | 直连 | 走 127.0.0.1:7897 |
+|---|---|---|
+| `cdn.jsdelivr.net` | ECONNRESET | 200 |
+| `raw.githubusercontent.com` | 000 超时 | 200 |
+| `api.github.com` | 403（未认证配额） | 200 |
+
+三个源在当前网络下**直连全不通**，而 `lib/update.js` 的 `requestBuffer()` 从头到尾没有代理支持
+——它是纯 `https.request`，只认直连。于是 head 那条的 `version` 恒为空字符串，上层
+`remoteVersion: lane.version || lane.sha` 就把提交号当版本号报给面板。
+
+**改法**
+
+`requestBuffer()` 增加可选的 `socket` 参数，三态语义：
+
+- `undefined` —— 还没试过代理，https 目标先走 CONNECT 隧道；
+- `false` —— 代理失败过，这一轮直连；
+- 对象 —— 现成的隧道 socket。
+
+`resolveProxy()` 的取值顺序：`https_proxy` / `HTTPS_PROXY` / `http_proxy` / `HTTP_PROXY` /
+`all_proxy` / `ALL_PROXY` → Windows 注册表 `Internet Settings\ProxyServer`。
+只处理 `http://` 形态（CONNECT 隧道够用），`socks` 直接跳过走直连——引一个 socks 依赖不值得。
+
+**踩到的坑（写进注释了）**
+
+把 `createConnection` 直接塞进 `https.request` 的 options，在「第一个参数是 URL 字符串」的形态下
+会被忽略，表现为 `ETIMEDOUT`。必须先包一层：
+
+```js
+const agent = new https.Agent({ keepAlive: false, maxSockets: 1 });
+agent.createConnection = () => tls.connect({ socket, servername: parsed.hostname });
+opts.agent = agent;
+```
+
+**顺带修掉一个会显示提交号的降级路径**
+
+`describeLane()` 原来只认 `latest` 那条（head）的 `version`。head 拿不到版本号时直接空，
+上层再 `|| lane.sha`。现在多一层：head 没版本号就退到同频道里最新的 tag 版本号
+（`newestTagVersion`，用 `versionIsNewer()` 比较，不排序取末位——tag 顺序不保证）。
+
+**实测**
+
+```
+remoteVersion: "1.2.6" | remoteSha: 00ca3f4 | hasUpdate: false
+    head   1.2.6      00ca3f4 LATEST
+    tag    1.2.5      00ca3f4
+    tag    1.2.4      8e7e84f
+```
+
+自检 9 组 220 项全过（`verify-rc216` 从 54 项加到 64 项：新增第 10 组，
+卡住「有 resolveProxy / 读注册表 / CONNECT 隧道 / socks 跳过 / 环境变量优先 /
+失败回退直连 / 隧道必须走 Agent / head 无版本号退到 tag」）。
+## v1.2.5 — 2026-11-25
 项目迁到新账号，更新源重新可达。
 
 **为什么会迁**
@@ -45,7 +107,11 @@ Spamhaus 挡在网关外（`550 5.7.1 ... blocked using Spamhaus`）、`support.
 `$DSH_HOME/dsh-purge/repo.json`，没有该文件就走新常量。如果之前手动填过旧仓库名，
 面板「更新源」一栏清空 →「保存更新源」即可回落默认。
 
-自检 9 组 204 项全过。
+新仓库已建并推齐：`Luckinchan7/dsh-purge-022`（public），20 个 tag 全部推送，
+16 个版本带 tgz + SHA256SUMS 资产、4 个仅说明（rc2.12 / rc2.14 / rc2.14.1 / rc2.14.2
+当年没留产物）。`checkUpdate()` 对本仓库返回 `remoteVersion: 1.2.5` / `via: "git"`。
+
+自检 9 组 210 项全过（`verify-rc216` 54 项）。
 ## v1.2.4 — 2026-11-21
 
 守卫不再闪窗，换完包自己退场。

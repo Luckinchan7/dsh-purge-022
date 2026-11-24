@@ -1,16 +1,17 @@
-# dsh-purge-022 1.2.5 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.6 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.5-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.5)
+[![version](https://img.shields.io/badge/version-1.2.6-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.6)
 [![patches](https://img.shields.io/badge/patches-90%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md)
 
-> **更新源**：`Luckinchan7/dsh-purge-022`。原 `devin667` 账号已被 GitHub 停用（仓库与 Release 对外 404），
-> 项目已整体迁到新账号。1.2.2 起更新源做成可切换的：面板「更新源」一栏填任意 `owner/repo`
-> 镜像即可继续查更新，本机已装的部分不受影响。
+> **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
+> 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
+> 20 个 tag 全部推送、对应 Release 已补齐资产。1.2.2 起更新源做成可切换的：面板「更新源」
+> 一栏填任意 `owner/repo` 镜像即可换源，本机已装的部分不受影响。
 
 ![banner](docs/banner.svg)
 
@@ -26,11 +27,34 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.5）** |
+| **0.2.2-rc.5** | **本版（1.2.6）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+<a id="126-what"></a>
+
+### 1.2.6 修了什么：更新检查补上出网代理
+
+仓库迁好之后更新能查了，但面板「最新版本」显示的是 `00ca3f4` —— 一串提交号。
+
+原因是 `remotePackageVersion()` 拿 `package.json` 里 `version` 的四个源，在当前网络下直连全不通：
+
+| 源 | 直连 | 走 `127.0.0.1:7897` |
+|---|---|---|
+| `cdn.jsdelivr.net` | `ECONNRESET` | 200 |
+| `raw.githubusercontent.com` | `000` | 200 |
+| `api.github.com`（未认证） | 403 配额用尽 | 200 |
+
+而 `lib/update.js` 的 `requestBuffer()` 是纯 `https.request`，没有代理支持。于是 head 那条的
+`version` 恒为空，`remoteVersion: lane.version || lane.sha` 就把提交号顶上去了。
+
+现在 `requestBuffer()` 多一个可选 `socket` 参数（`undefined` 试代理 / `false` 直连 / 对象 用现成隧道），
+`resolveProxy()` 按 环境变量 → Windows 注册表 `Internet Settings\ProxyServer` 的顺序取值，
+只认 `http://` 形态，`socks` 跳过，代理挂了自动退回直连。
+
+顺带补了一条降级：`describeLane()` 在 head 拿不到版本号时退到同频道最新 tag 的版本号，不再直接给提交号。
 
 <a id="125-what"></a>
 
@@ -40,7 +64,7 @@
 `/users/devin667` 与仓库都返回 Not Found，带 token 则是
 `Sorry. Your account was suspended`。项目整体迁到 `Luckinchan7/dsh-purge-022`。
 
-这一版只改字符串常量，不动任何宿主补丁。
+这一版只改字符串常量，不动任何宿主补丁。迁完之后新仓库已建、代码与标签推齐、Release 资产补齐。
 
 ### 改了哪些位置
 
@@ -64,7 +88,7 @@ npm 包名 `dsh-purge-022` —— 全部保持原样，所以升级不会丢本�
 没有该文件就走新常量。之前手动填过旧仓库名的，面板「更新源」一栏清空
 →「保存更新源」即可回落默认。
 
-完整说明见 [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)。
+完整说明见 [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md)。
 
 ---
 
@@ -195,7 +219,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.5 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.6 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -221,7 +245,7 @@ if (parsed.kind !== "registry" || parsed.name !== bundle.name || parsed.range?.i
 
 版本号同时从 `1.1.71-rc2.14.2` 改为 `1.2.0`：带 prerelease 段会被面板的 `versionsNoneInstallable` 当成预发布过滤掉，更新链会断。
 
-内置的更新检查读本仓库的 GitHub Release（`lib/update.js` 的 `checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()`），不依赖 npm。1.2.2 起更新源可切换，远端读不到会明确报原因而不是报「已是最新」。实测（账号封停状态下）：
+内置的更新检查读本仓库的 GitHub Release（`lib/update.js` 的 `checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()`），不依赖 npm。1.2.2 起更新源可切换，远端读不到会明确报原因而不是报「已是最新」。当年账号封停时的实测（历史记录）：
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:true
@@ -233,6 +257,13 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```
 ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:false
+```
+
+迁到 `Luckinchan7` 之后，默认源直接可用：
+
+```
+ok:true  hasUpdate:false  localVersion:1.2.6  remoteVersion:1.2.6  via:git
+repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
 老用户升级时 profile 里会新旧并存（两份都带 `id: dsh-purge`，Cordis 报 already queued，宿主起不来）。`lib/self-insert.js` 的 `removeLegacyRegistrations()` 在启动时自动清理：摘掉 `bundles` / `dependencies` 里的旧名、删 `node_modules/dsh-purge`、把 `cordis.patch.yml` 里的 `name: dsh-purge` 就地改成新包名。
@@ -259,13 +290,11 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 
 ### 安装
 
-> 仓库所在的 GitHub 账号已被停用，下面的 Release 直链目前 404。已经有 tarball 的话按「本地文件」装；要装新版就从镜像仓库或本机 `dist/` 取包。
-
 **方式一：Release tarball（最稳）**
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <镜像仓库>/releases/download/v1.2.5/dsh-purge-022-1.2.5.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
 ```
 
 本地文件同理：
@@ -273,10 +302,11 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.5.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.6.tgz"
 ```
 
-**方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。仓库地址没变时这一步会报「账号被停用或仓库已改名」，不是网络问题。
+**方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
+更新源默认就是 `Luckinchan7/dsh-purge-022`，不用改。想换镜像就在「更新源」一栏填 `owner/repo` →「保存更新源」。
 
 **方式三：手动**。解包到 `~/.dsh/profiles/desktop/node_modules/dsh-purge-022`，然后
 
@@ -317,16 +347,17 @@ verify-rc2142          9 passed    #71 缺席宿主 / 面板口径
 verify-rc120          22 passed    包名迁移 / engines / 自愈
 verify-migration      21 passed    旧包名清理
 verify-migration-yaml  8 passed    cordis.patch.yml 结构
-verify-rc215          42 passed    空闲换包守卫（9 项真跑）
-verify-rc216          48 passed    更新源切换 / 假报已最新 / 两种包名
+verify-rc215          64 passed    空闲换包守卫（9 项真跑）+ .vbs 静默 + 换完退役
+verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 出网代理
                      ─────────
-                     182 项全过
+                     220 项全过
 ```
 
 `verify-rc216` 里那几项联网断言：
 
-- 封停账号下 `probeRepo` 必须报 `missing`/`404`，不能报 `ok`（网络抖动时允许降级成 `offline`，此时跳过状态码断言）
-- `checkUpdate` 必须置 `remoteUnreadable: true`、`hasRemote: false`，且 `remoteVersion` 不回填本地版本
+- 探一个不存在的仓库时 `probeRepo` 必须报 `missing`/`404`，不能报 `ok`（网络抖动时允许降级成 `offline`，此时跳过状态码断言）
+- 该状态下 `checkUpdate` 必须置 `remoteUnreadable: true`、`hasRemote: false`，且 `remoteVersion` 不回填本地版本
+- 默认源 `Luckinchan7/dsh-purge-022` 可读：`hasRemote: true`、`remoteVersion: "1.2.6"`
 - 换成 `nodejs/node` 后 `hasRemote` 恢复、`override: true`
 - 恢复默认后 `repo.json` 被删、`override: false`
 
@@ -339,7 +370,7 @@ verify-rc216          48 passed    更新源切换 / 假报已最新 / 两种包
 
 ### 文档
 
-- [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md) —— 迁到新账号的完整说明
+- [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md) —— 迁到新账号的完整说明
 - [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) —— 换包守卫假 pending 的完整来龙去脉
 - [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新
 - [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫
@@ -359,11 +390,31 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.5)** |
+| **0.2.2-rc.5** | **this release (1.2.6)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
+
+<a id="126-what"></a>
+
+### 1.2.6 fixes: the updater can reach GitHub again
+
+Once the repository moved, updates could be checked — but the panel's "latest" field showed `00ca3f4`, a raw commit hash.
+
+`remotePackageVersion()` tries four sources for the `version` field in `package.json`. On this network every one of them fails when connecting directly:
+
+| Source | Direct | Via `127.0.0.1:7897` |
+|---|---|---|
+| `cdn.jsdelivr.net` | `ECONNRESET` | 200 |
+| `raw.githubusercontent.com` | `000` | 200 |
+| `api.github.com` (unauthenticated) | 403, quota exhausted | 200 |
+
+`requestBuffer()` in `lib/update.js` was plain `https.request` with no proxy support at all, so the head row's `version` stayed empty and `remoteVersion: lane.version || lane.sha` fell through to the commit hash.
+
+`requestBuffer()` now takes an optional `socket` argument — `undefined` means "try the proxy", `false` means "direct this round", an object means "reuse this CONNECT tunnel". `resolveProxy()` reads env vars first, then `Internet Settings\ProxyServer` from the Windows registry, accepts only `http://` form, skips `socks`, and falls back to a direct connection when the proxy is unreachable.
+
+Also fixed a fallback that leaked hashes: `describeLane()` now drops to the newest tag version on that channel when the head row has no version, instead of leaving it empty.
 
 <a id="125-what"></a>
 
@@ -374,7 +425,8 @@ Release asset return 404 — anonymous access to `/users/devin667` and the repo 
 give Not Found, and an authenticated call returns `Sorry. Your account was suspended`.
 The project now lives at `Luckinchan7/dsh-purge-022`.
 
-This release changes string constants only. No host patch is touched.
+This release changes string constants only. No host patch is touched. After the move the new
+repository is live, all 20 tags are pushed and every Release carries its assets.
 
 | File | What changed |
 |---|---|
@@ -392,7 +444,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.5 release notes](docs/releases/RELEASE-NOTES-1.2.5.md).
+See [1.2.6 release notes](docs/releases/RELEASE-NOTES-1.2.6.md).
 
 ---
 
@@ -518,7 +570,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.5 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.6 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -543,12 +595,20 @@ The second kind must not change — renaming them orphans existing `tuning.json`
 
 The version also went from `1.1.71-rc2.14.2` to `1.2.0`: a prerelease segment gets filtered out by the panel's `versionsNoneInstallable`, breaking the update chain.
 
-The built-in updater reads this repo's GitHub Releases (`checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()` in `lib/update.js`) and does not depend on npm. From 1.2.2 the source is switchable, and an unreadable remote reports why instead of claiming "up to date". Measured with the account suspended:
+The built-in updater reads this repo's GitHub Releases (`checkUpdate()` / `applyUpdate()` / `switchChannel()` / `switchVersion()` in `lib/update.js`) and does not depend on npm. From 1.2.2 the source is switchable, and an unreadable remote reports why instead of claiming "up to date". Measured while the account was still suspended (historical):
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:true
 error: update source Luckinchan7/dsh-purge-022 returned HTTP 404 — account suspended or repo renamed
 repo:  Luckinchan7/dsh-purge-022  override:false
+```
+
+After the move to the new account the same call against the default source returns:
+
+```
+ok:true  hasUpdate:false  remoteUnreadable:false
+localVersion: 1.2.6   remoteVersion: 1.2.6   via: "git"
+localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
 Pointing it at a readable mirror restores the check immediately:
@@ -570,14 +630,14 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ### Install
 
-> The GitHub account behind this repo is suspended, so the Release URLs below currently 404. If you already have a tarball, install from the local file; to get a newer build, pull it from a mirror repo or from `dist/` on the machine that built it.
-
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <mirror-repo>/releases/download/v1.2.5/dsh-purge-022-1.2.5.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
 ```
 
-Or, if already on 1.2.x: plugin panel → set the update source to a mirror → Save → Check again → Update. With the original repo it will report "account suspended or repo renamed", which is not a network problem.
+Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to
+`Luckinchan7/dsh-purge-022` and needs no change; to point it at a mirror, type `owner/repo` into
+the "update source" field and save.
 
 Then **fully quit the host** (tray included), reopen, and click **dsh-purge → Clean → Apply**.
 
@@ -592,10 +652,10 @@ verify-rc2142          9 passed
 verify-rc120          22 passed
 verify-migration      21 passed
 verify-migration-yaml  8 passed
-verify-rc215          42 passed   (9 of them execute the real guard)
-verify-rc216          48 passed   (live probe + repo switch + both package names)
+verify-rc215          64 passed   (9 of them execute the real guard)
+verify-rc216          64 passed   (live probe + repo switch + proxy egress)
                      ─────────
-                      182 passed, 0 failed
+                      220 passed, 0 failed
 ```
 
 ### License

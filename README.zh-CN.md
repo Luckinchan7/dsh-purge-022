@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.5</strong></p>
+<p align="center"><strong>Version 1.2.6</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.6 修了什么](#126-修了什么更新检查补上出网代理)
 - [1.2.5 修了什么](#125-修了什么项目迁到新账号)
 - [1.2.4 修了什么](#124-修了什么不再闪窗换完包自己退场)
 - [1.2.3 修了什么](#123-修了什么换包守卫不再报在等其实没人)
@@ -100,7 +101,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.5）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.6）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -111,6 +112,29 @@
 
 ---
 
+<a id="126-what"></a>
+
+## 1.2.6 修了什么：更新检查补上出网代理
+
+仓库迁好之后更新能查了，但面板「最新版本」显示的是 `00ca3f4` —— 一串提交号。
+
+`remotePackageVersion()` 拿 `package.json` 里 `version` 的四个源，在当前网络下直连全不通：
+
+| 源 | 直连 | 走 `127.0.0.1:7897` |
+|---|---|---|
+| `cdn.jsdelivr.net` | `ECONNRESET` | 200 |
+| `raw.githubusercontent.com` | `000` | 200 |
+| `api.github.com`（未认证） | 403 配额用尽 | 200 |
+
+而 `lib/update.js` 的 `requestBuffer()` 是纯 `https.request`，没有代理支持。head 那条的
+`version` 恒为空，`remoteVersion: lane.version || lane.sha` 就把提交号顶上去了。
+
+现在 `requestBuffer()` 多一个可选 `socket` 参数：`undefined` 试代理、`false` 直连、对象用现成隧道。
+`resolveProxy()` 按 环境变量 → Windows 注册表 `Internet Settings\ProxyServer` 取值，
+只认 `http://` 形态，`socks` 跳过，代理挂了自动退回直连。
+
+顺带补一条降级：head 拿不到版本号时退到同频道最新 tag 的版本号，不再直接给提交号。
+
 <a id="125-what"></a>
 
 ## 1.2.5 修了什么：项目迁到新账号
@@ -119,7 +143,7 @@
 `/users/devin667` 与仓库都返回 Not Found，带 token 则是
 `Sorry. Your account was suspended`。项目整体迁到 `Luckinchan7/dsh-purge-022`。
 
-这一版只改字符串常量，不动任何宿主补丁。
+这一版只改字符串常量，不动任何宿主补丁。迁完之后新仓库已建、20 个 tag 推齐、Release 资产补齐。
 
 ### 改了哪些位置
 
@@ -143,7 +167,7 @@ npm 包名 `dsh-purge-022` —— 全部保持原样，所以升级不会丢本�
 没有该文件就走新常量。之前手动填过旧仓库名的，面板「更新源」一栏清空
 →「保存更新源」即可回落默认。
 
-完整说明见 [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)。
+完整说明见 [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md)。
 
 ---
 
@@ -339,7 +363,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -347,7 +371,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -359,8 +383,8 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.4  remoteVersion:1.2.4
-repo:  Luckinchan7/dsh-purge-022  override:false
+ok:true  hasUpdate:false  localVersion:1.2.6  remoteVersion:1.2.6
+repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 
 ### 方式三：本地 tarball
@@ -829,14 +853,15 @@ verify-rc2142          9 passed    #71 缺席宿主 / 面板口径
 verify-rc120          22 passed    包名迁移 / engines / 自愈
 verify-migration      21 passed    旧包名清理
 verify-migration-yaml  8 passed    cordis.patch.yml 结构
-verify-rc215          42 passed    空闲换包守卫（9 项真跑）
+verify-rc215          64 passed    空闲换包守卫（9 项真跑）+ .vbs 静默 + 换完退役
+verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 出网代理
                      ─────────
-                     134 项全过
+                     220 项全过
 ```
 
 `verify-rc215` 里真跑的 9 项：
 
-- 进程持有时 asar 原地不动、不留 `.bak`、日志报 `holders at start>=1`
+- 进程持有时 asar 原地不动、不留 `.bak`、日志报 `waiting; holders>=1`
 - 进程退净后 asar 被挪走、留 `.bak`、日志记 `health ok` / `asar moved`
 - `resources/app` 不健康时 asar 保留、不产生 `.bak`、日志明确 `ABORT`
 - 守卫 PS1 通过 PowerShell `Parser::ParseFile`

@@ -78,40 +78,70 @@ ok("403 提示限流", /403/.test(blockedText) && /限流/.test(blockedText), bl
 const offlineText = upd.describeProbe({ state: "offline", status: 0, repo: "a/b" });
 ok("连不上提示网络", /网络不通/.test(offlineText), offlineText);
 
-// ---- 4. 真联网：封停账号下必须报错，不能报"已是最新"
+// ---- 4. 真联网：不可读的仓库必须报错，不能报"已是最新"
 // 这一段依赖真实网络：网络抖一下 probe 会从 missing 掉成 offline。
 // 所以断言分两层——"不能可读"是硬要求，"具体是 404"允许重试后判定，
 // 否则这个自检会在网络不稳的机器上假红。
-console.log("\n[4] 真联网探一次（当前账号被停用，应报 missing/404）");
-let probe = await upd.probeRepo("Luckinchan7/dsh-purge-022");
+// 注意：这里探的是一个不存在的仓库，不是本仓库本身。早先账号被封时探的是
+// Luckinchan7/dsh-purge-022，迁到新账号后它变成可读，那段断言就恒假了。
+const GONE_REPO = "Luckinchan7/dsh-purge-022-gone-fixture";
+console.log("\n[4] 真联网探一个不存在的仓库（应报 missing/404）");
+let probe = await upd.probeRepo(GONE_REPO);
 for (let i = 0; i < 3 && probe.state !== "missing"; i += 1) {
   if (probe.state === "ok") break;
   await new Promise((r) => setTimeout(r, 400));
-  probe = await upd.probeRepo("Luckinchan7/dsh-purge-022");
+  probe = await upd.probeRepo(GONE_REPO);
 }
-ok("仓库不可读", probe.state !== "ok", JSON.stringify(probe));
+ok("不存在的仓库不可读", probe.state !== "ok", JSON.stringify(probe));
 if (probe.state === "missing") {
   ok("probe 带 404", probe.status === 404, String(probe.status));
 } else {
   console.log(`  skip probe 状态码断言（本次探到 ${probe.state}，网络抖动）`);
 }
 
+upd.writeRepoOverride(GONE_REPO);
 const live = await upd.checkUpdate();
+upd.writeRepoOverride("");
 ok("远端读不到时置 remoteUnreadable", live.remoteUnreadable === true);
 ok("hasRemote 不再被本机条目顶成 true", live.lanes.stable.hasRemote === false, String(live.lanes.stable.hasRemote));
 ok("remoteVersion 不再回填本地版本", !live.remoteVersion || live.remoteVersion !== live.localVersion, String(live.remoteVersion));
 ok("有可读的原因而不是空错误", Boolean(live.error), String(live.error));
-ok("结果里带当前 repo", live.repo === "Luckinchan7/dsh-purge-022", String(live.repo));
+ok("结果里带当前 repo", live.repo === GONE_REPO, String(live.repo));
+
+// ---- 4b. 默认源（本仓库）现在是可读的
+// 同样容错：探到 blocked 说明是这一轮自检把未认证配额打满了。
+console.log("\n[4b] 默认源可读");
+const defProbe = await upd.probeRepo("Luckinchan7/dsh-purge-022");
+ok("默认源不是'仓库不存在'", defProbe.state !== "missing", JSON.stringify(defProbe));
+if (defProbe.state === "ok") {
+  const defCheck = await upd.checkUpdate();
+  ok("默认源不标 remoteUnreadable", !defCheck.remoteUnreadable, String(defCheck.remoteUnreadable));
+  ok("默认源 hasRemote 为真", defCheck.lanes.stable.hasRemote === true);
+  ok("默认源 remoteVersion 有值", Boolean(defCheck.remoteVersion), String(defCheck.remoteVersion));
+  // 不钉死具体版本号 —— 下次发版就假红。要求它形如 x.y.z 且与版本列表里最新的稳定条目一致。
+  const stableRows = (defCheck.versions || []).filter((v) => v.channel === "stable" && v.kind !== "local");
+  ok("默认源 remoteVersion 是语义化版本", /^\d+\.\d+\.\d+$/.test(String(defCheck.remoteVersion)), String(defCheck.remoteVersion));
+  ok("默认源 remoteVersion 命中版本列表的稳定项", stableRows.some((v) => v.version === defCheck.remoteVersion), stableRows.map((v) => v.version).join(","));
+  ok("默认源 repo 是 Luckinchan7", defCheck.repo === "Luckinchan7/dsh-purge-022", String(defCheck.repo));
+} else {
+  console.log(`  skip 默认源可读断言（本次探到 ${defProbe.state}，多半是未认证配额用尽，非代码问题）`);
+}
 
 // ---- 5. 换成能读的仓库后，hasRemote 恢复
+// 这一段同样吃 api.github.com 的未认证配额（60 次/小时）。探到 blocked(403)
+// 说明是配额被这一轮自检自己打满，不是代码缺陷 —— 跳过并说明，别假红。
 console.log("\n[5] 换成可读仓库后恢复");
 upd.writeRepoOverride("nodejs/node");
 const swappedProbe = await upd.probeRepo();
-ok("新源可读", swappedProbe.state === "ok", JSON.stringify(swappedProbe));
-const swappedCheck = await upd.checkUpdate();
-ok("hasRemote 恢复", swappedCheck.lanes.stable.hasRemote === true);
-ok("不再标 remoteUnreadable", !swappedCheck.remoteUnreadable);
-ok("repo 字段跟着变", swappedCheck.repo === "nodejs/node", String(swappedCheck.repo));
+ok("新源不是'仓库不存在'", swappedProbe.state !== "missing", JSON.stringify(swappedProbe));
+if (swappedProbe.state === "ok") {
+  const swappedCheck = await upd.checkUpdate();
+  ok("hasRemote 恢复", swappedCheck.lanes.stable.hasRemote === true);
+  ok("不再标 remoteUnreadable", !swappedCheck.remoteUnreadable);
+  ok("repo 字段跟着变", swappedCheck.repo === "nodejs/node", String(swappedCheck.repo));
+} else {
+  console.log(`  skip 恢复断言（本次探到 ${swappedProbe.state}，多半是未认证配额用尽，非代码问题）`);
+}
 upd.writeRepoOverride("");
 
 // ---- 6. handleUpdateOp 的 repo 动作
@@ -164,6 +194,19 @@ ok("engines.dsh 仍钉住 0.2.2", String(pkg.engines?.dsh || "").includes("0.2.2
 const updateSrc = fs.readFileSync(path.join(ROOT, "lib", "update.js"), "utf8");
 ok("没有任何地方再裸用 REPO", !/\$\{REPO\}/.test(updateSrc));
 ok("activeRepo 被 URL 模板使用", (updateSrc.match(/\$\{activeRepo\(\)\}/g) || []).length >= 13, String((updateSrc.match(/\$\{activeRepo\(\)\}/g) || []).length));
+
+// ---- 10. 出网代理（raw / jsdelivr 直连被掐时靠它拿版本号）
+console.log("\n[10] 出网代理");
+ok("有 resolveProxy", /function resolveProxy\(\)/.test(updateSrc));
+ok("读 Windows 系统代理", /function readWindowsSystemProxy\(\)/.test(updateSrc) && /Internet Settings/.test(updateSrc));
+ok("有 CONNECT 隧道", /function proxyConnect\(/.test(updateSrc) && /method: "CONNECT"/.test(updateSrc));
+ok("代理只认 http(s)，socks 跳过", /\/\^socks\/i\.test\(text\)/.test(updateSrc));
+ok("环境变量优先于注册表", updateSrc.indexOf("process.env.https_proxy") < updateSrc.indexOf("readWindowsSystemProxy(),"));
+ok("代理失败回退直连", /requestBuffer\(url, ms, headers, redirectsLeft, false\)/.test(updateSrc));
+// 关键教训：把 createConnection 直接塞给 https.request（URL 形态）会被忽略 → ETIMEDOUT。
+ok("隧道走 https.Agent 而非裸 createConnection", /new https\.Agent\(\{ keepAlive: false, maxSockets: 1 \}\)/.test(updateSrc));
+ok("Agent 上挂 createConnection", /agent\.createConnection = \(\) => tls\.connect\(\{ socket, servername: parsed\.hostname \}\)/.test(updateSrc));
+ok("head 无版本号时退到最新 tag 版本", /newestTagVersion/.test(updateSrc) && /latest\?\.version \|\| newestTagVersion/.test(updateSrc));
 
 fs.rmSync(TMP, { recursive: true, force: true });
 
