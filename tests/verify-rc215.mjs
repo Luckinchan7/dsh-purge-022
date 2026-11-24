@@ -234,7 +234,7 @@ const compatSrc = fs.readFileSync(path.join(ROOT, "lib", "compat-0.2.2.js"), "ut
 ok("compat 覆盖也指向 dsh-purge-022", compatSrc.includes("dsh-purge-022"));
 
 // ---- 9. 补丁清单完整性
-ok("补丁总数仍为 90", core.ALL_PATCHES.length === 90, `实际 ${core.ALL_PATCHES.length}`);
+ok("补丁总数 ≥ 90 且 id 不重复", core.ALL_PATCHES.length >= 90 && new Set(core.ALL_PATCHES.map(p => p.id)).size === core.ALL_PATCHES.length, `实际 ${core.ALL_PATCHES.length}`);
 const p45 = core.ALL_PATCHES.find((p) => p.id === 45);
 ok("补丁 45 存在", Boolean(p45));
 ok(

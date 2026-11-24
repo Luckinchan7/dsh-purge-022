@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.6</strong></p>
+<p align="center"><strong>Version 1.2.7</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.7 修了什么](#127-修了什么补丁表扩到-131-条容量类上限全面抬升)
 - [1.2.6 修了什么](#126-修了什么更新检查补上出网代理)
 - [1.2.5 修了什么](#125-修了什么项目迁到新账号)
 - [1.2.4 修了什么](#124-修了什么不再闪窗换完包自己退场)
@@ -101,7 +102,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.6）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.7）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -109,6 +110,131 @@
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
 对不上的补丁会显示待应用或跳过，不会乱改文件。
+
+---
+
+<a id="127-what"></a>
+
+## 1.2.7 修了什么：补丁表扩到 131 条，容量类上限全面抬升
+
+补丁表从 90 条扩到 **131 条**。新增的 41 条（#100–#140）改的不是行为，是**容量**。
+
+前面 99 条改「宿主遇到某种输入时做什么」；这一批改「宿主允许多大的输入」。宿主的出厂预算普遍偏小，模型一旦真干活就频繁撞顶 —— 读日志撞输出上限、扫大仓撞检索上限、跑长测试撞超时、开多个子代理撞并发上限。每条只动一个常量或一个 schema 默认值，逻辑代码一行不改。
+
+### 输出体积
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 100 | 持久 shell 输出 | 16KB → 256KB |
+| 101 | shell 单次输出 | 64KB → 4MB |
+| 102 | terminal 结果 | 256KB → 4MB |
+| 103 | 后台任务内联 | 2KB → 256KB |
+| 104 | workflow 结果 | 50k → 1M 字符 |
+| 105 | spill 阈值 | 12500 → 100000 token |
+
+### 检索容量
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 106 | glob / grep | 100 条 / 250 行 → 各 1 万 |
+| 131 | 原始输出 / 超时 / 行宽 | 20MB / 30s / 2KB → 200MB / 180s / 16KB |
+
+### 并发与轮次
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 107 | 同时活跃子代理 | 8 → 32 |
+| 108 | 并行工具调用 | 10 → 24 |
+| 109 | 目标续跑 | 256 → 4096 轮 |
+| 110 | agent-team 任务 | 256 → 4096 |
+
+### 超时
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 128 | shell 超时 / 上限 | 120s / 600s → 600s / 2400s |
+| 129 | 持久 shell 超时 / 回滚 | 300s / 1000 行 → 1800s / 1 万行 |
+| 130 | 后台任务等待 | 600s → 1800s |
+
+### 出网与检索
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 112 | fetch 响应 / 超时 | 5MB / 30s → 50MB / 120s |
+| 113 | web_search 结果 / 查询 | 10 / 10 → 50 / 20 |
+| 114 | MCP 超时 / 指令 | 60s / 32KB → 600s / 256KB |
+| 136 | web 工具超时 | 30s → 180s |
+| 137 | fetch 渲染输出 / 摘要 | 200k / 800 → 2M / 8000 字符 |
+| 138 | fetch 正文 / 重定向 | 100k / 5 → 2M / 20 |
+| 139 | MCP 重连 | 10 次 / 30s → 100 次 / 300s |
+
+### 会话与素材
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 115 | 会话搜索页 | 20 → 100 条 |
+| 116 | 会话搜索单次 | 100 → 1000 条 |
+| 117 | 技能描述 | 500 → 2000 字符 |
+| 118 | 会话引用字节 | 64KB → 1MB |
+| 119 | 图片归一化边长 | 8192 → 16384 |
+| 132 | 单条消息引用 / 候选 | 3 个 / 50 → 32 个 / 500 |
+| 133 | 单条消息图片 | 20 → 100 |
+| 134 | office 内嵌图片 | 20 → 200 |
+| 135 | diff 基准 | 10MB → 100MB |
+
+### 其他
+
+| # | 内容 | 出厂 → 现在 |
+|---|---|---|
+| 111 | CUA 树深度 | 25（上限 100）→ 200（上限 1000） |
+| 120 | present 文件数 | 8 → 32 |
+| 121 | 定时任务间隔 / 列表 | 60s / 500 → 30s / 5000 |
+| 122 | office 像素 / 边长 | 8M / 8192 → 32M / 16384 |
+| 123 | AGENTS.md 源文件 | 1MB → 16MB |
+| 124 | 二进制文件 read | 拒绝 → 允许（有损解码） |
+| 125 | 二进制文件 edit | 拒绝 → 允许 |
+| 126 | 压缩触发 / 保留 | 80% / 16% → 95% / 50% |
+| 140 | CUA 元素 / 拖拽步数 | 2000 / 20 → 2 万 / 240 |
+
+### 顺带修掉一个真 bug
+
+`dsh-compaction-tool-result-pruner` 的 Config 是：
+
+```js
+thresholdChars: z.number().step(1).min(1).default(DEFAULTS.thresholdChars),
+```
+
+但 `dsh-base/cordis.patch.yml` 里**显式写了**：
+
+```yaml
+- id: tool-result-pruner
+  config:
+    thresholdChars: 8192
+    headChars: 4096
+    tailChars: 1024
+```
+
+显式 config 优先于 schema default。所以 1.2.0 起 #19 把 `DEFAULTS` 抬到 16384 之后，运行时读到的仍然是 yml 里的 8192 —— **#19 在真机上等于没生效**，任何超过 8KB 的工具结果照旧被裁成「头 8KB + 标记 + 尾 1KB」。
+
+新增的 #127 把 yml 一起抬到 `50000 / 32768 / 8192`，与 #19 对齐。
+
+### 怎么验证的
+
+先静态干跑（不写盘），用 `applyReplacementsToText` 对真实宿主逐条跑：
+
+- 每条 pattern 都能找到（41/41 命中）
+- marker 都能在产物里找到（否则应用完会显示"待应用"）
+- 产物再跑一遍不再变化（幂等）
+
+再真机 apply：第一次 applied 41 / already 75 / failed 0；第二次 applied 0 / already 116 / failed 0。
+
+最后确认产物可运行：34 个被改的 JS 文件 `node --check` 全过，7 个被改包的 `import()` 全部可加载，yml 用 `yaml.parse` 解析通过。
+
+自检从 220 项扩到 **743 项**（新增 `verify-rc217` 523 项，专查 id 唯一性、字段完整性、目标键存在性、marker 命中、幂等、#127 专项），9 组全过。
+
+### 安全边界
+
+#124 / #125 是这批里唯一会改变失败语义的两条：`read` 和 `edit` 不再因为 NUL 字节拒绝二进制文件，解码改成 `fatal: false`。副作用是读一张 PNG 会得到一堆替换字符而不是报错。不需要的话可以在面板里单独关掉，其余 39 条都只是调高上限。
 
 ---
 
@@ -363,7 +489,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -371,7 +497,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -383,7 +509,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.6  remoteVersion:1.2.6
+ok:true  hasUpdate:false  localVersion:1.2.7  remoteVersion:1.2.7
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

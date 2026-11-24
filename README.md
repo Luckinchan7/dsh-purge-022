@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.6 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.7 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.6-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.6)
-[![patches](https://img.shields.io/badge/patches-90%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
+[![version](https://img.shields.io/badge/version-1.2.7-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.7)
+[![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,11 +27,31 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.6）** |
+| **0.2.2-rc.5** | **本版（1.2.7）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+<a id="127-what"></a>
+
+### 1.2.7 修了什么：补丁表扩到 131 条，容量类上限全面抬升
+
+补丁表从 90 条扩到 **131 条**。新增的 41 条（#100–#140）改的不是行为，是**容量** —— 宿主出厂把各种输出、检索、并发、超时的预算压得很小，模型一旦真干活就频繁撞顶。每条只动一个常量或一个 schema 默认值，逻辑代码一行不改。
+
+| 分组 | 条数 | 内容 |
+|---|---|---|
+| 输出体积 #100–#105 | 6 | 持久 shell 16KB→256KB、单次 shell 64KB→4MB、terminal 256KB→4MB、后台任务 2KB→256KB、workflow 50k→1M 字符、spill 12500→100000 token |
+| 检索容量 #106 #131 | 2 | glob 100→1万条、grep 250→1万行；原始输出 20MB→200MB、超时 30s→180s、行宽 2KB→16KB |
+| 并发与轮次 #107–#110 | 4 | 子代理 8→32、并行工具 10→24、目标续跑 256→4096、team 任务 256→4096 |
+| 出网 #112 #113 #114 #136–#139 | 8 | fetch 5MB/30s→50MB/120s、正文 100k→2M 字符、重定向 5→20、web_search 10/10→50/20、MCP 60s/32KB→600s/256KB、重连 10→100 |
+| 超时 #128–#130 | 3 | shell 120s→600s（上限 2400s）、持久 shell 300s→1800s、后台等待 600s→1800s |
+| 会话与素材 #115–#119 #132–#135 | 10 | 会话搜索 20→100 页 / 100→1000 条、引用 64KB→1MB 与 3→32 个、图片边长 8192→16384、消息内图片 20→100 |
+| 其他 #111 #120–#126 #140 | 9 | CUA 树深 25→200 / 元素 2000→2万、present 8→32、定时 60s→30s、office 8M→32M、AGENTS.md 1MB→16MB、压缩 80%/16%→95%/50% |
+
+**顺带修掉一个真 bug。** `dsh-compaction-tool-result-pruner` 的 Config 是 `thresholdChars: z.number().default(DEFAULTS.thresholdChars)`，但 `dsh-base/cordis.patch.yml` 里**显式写了** `thresholdChars: 8192`。显式 config 优先于 schema default —— 所以 1.2.0 起 #19 把 DEFAULTS 抬到 16384 之后，运行时读到的仍然是 yml 的 8192，#19 在真机上等于没生效。新增的 #127 把 yml 一起抬到 50000/32768/8192，与 #19 对齐。
+
+验证方式是先静态干跑再真机 apply：41 条全部命中、marker 全部能找到、二次应用无变化；真机第一次 applied 41 / failed 0，第二次 applied 0 / already 116（幂等）；34 个被改的 JS 文件 `node --check` 全过；7 个被改包的 `import()` 全部可加载；yml `yaml.parse` 通过。自检 9 组 **743 项** 全过。
 
 <a id="126-what"></a>
 
@@ -219,7 +239,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.6 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.7 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -262,7 +282,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.6  remoteVersion:1.2.6  via:git
+ok:true  hasUpdate:false  localVersion:1.2.7  remoteVersion:1.2.7  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -294,7 +314,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
 ```
 
 本地文件同理：
@@ -302,7 +322,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.6.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.7.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -357,7 +377,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 - 探一个不存在的仓库时 `probeRepo` 必须报 `missing`/`404`，不能报 `ok`（网络抖动时允许降级成 `offline`，此时跳过状态码断言）
 - 该状态下 `checkUpdate` 必须置 `remoteUnreadable: true`、`hasRemote: false`，且 `remoteVersion` 不回填本地版本
-- 默认源 `Luckinchan7/dsh-purge-022` 可读：`hasRemote: true`、`remoteVersion: "1.2.6"`
+- 默认源 `Luckinchan7/dsh-purge-022` 可读：`hasRemote: true`、`remoteVersion: "1.2.7"`
 - 换成 `nodejs/node` 后 `hasRemote` 恢复、`override: true`
 - 恢复默认后 `repo.json` 被删、`override: false`
 
@@ -370,6 +390,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md) —— #100–#140 容量补丁与 #19 失效根因
 - [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md) —— 迁到新账号的完整说明
 - [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) —— 换包守卫假 pending 的完整来龙去脉
 - [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新
@@ -390,13 +411,31 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.6)** |
+| **0.2.2-rc.5** | **this release (1.2.7)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
 <a id="126-what"></a>
+
+### 1.2.7 fixes: the patch table grows to 131 entries and every capacity cap gets room
+
+The patch table grows from 90 to **131 entries**. The 27 new ones listed in the request (plus 14 more I added) change **capacity**, not behaviour — the host ships with very small budgets for output, search, concurrency and timeouts, so a model that actually works hits them constantly. Each entry moves one constant or one schema default; no logic is rewritten.
+
+| Group | Count | What |
+|---|---|---|
+| Output volume #100–#105 | 6 | persistent bash 16KB→256KB, one-shot bash 64KB→4MB, terminal 256KB→4MB, job inline 2KB→256KB, workflow 50k→1M chars, spill 12500→100000 tokens |
+| Search capacity #106 #131 | 2 | glob 100→10k, grep 250→10k; raw output 20MB→200MB, timeout 30s→180s, line width 2KB→16KB |
+| Concurrency #107–#110 | 4 | subagents 8→32, parallel tools 10→24, goal rounds 256→4096, team tasks 256→4096 |
+| Network #112 #113 #114 #136–#139 | 8 | fetch 5MB/30s→50MB/120s, body 100k→2M chars, redirects 5→20, web_search 10/10→50/20, MCP 60s/32KB→600s/256KB, reconnect 10→100 |
+| Timeouts #128–#130 | 3 | bash 120s→600s (ceiling 2400s), persistent bash 300s→1800s, job wait 600s→1800s |
+| Sessions and media #115–#119 #132–#135 | 10 | session search 20→100 per page / 100→1000 per call, references 64KB→1MB and 3→32, image edge 8192→16384, images per message 20→100 |
+| Rest #111 #120–#126 #140 | 9 | CUA depth 25→200 / elements 2000→20k, present 8→32, schedule 60s→30s, office 8M→32M, AGENTS.md 1MB→16MB, compaction 80%/16%→95%/50% |
+
+**One real bug fell out of this.** `dsh-compaction-tool-result-pruner` declares `thresholdChars: z.number().default(DEFAULTS.thresholdChars)`, but `dsh-base/cordis.patch.yml` sets it **explicitly** to `8192`. Explicit config outranks a schema default — so patch #19, which raised DEFAULTS to 16384 back in 1.2.0, never took effect on a real install; anything over 8KB was still pruned. New patch #127 raises the yml to 50000/32768/8192 so it agrees with #19.
+
+Verification: a dry run first (every pattern hits, every marker is findable in the output, a second pass changes nothing), then a real apply — first pass applied 41 / failed 0, second pass applied 0 / already 116 (idempotent), 34 modified JS files pass `node --check`, 7 modified packages `import()` cleanly, the yml parses. Self-check: 9 groups, **743 assertions**, all green.
 
 ### 1.2.6 fixes: the updater can reach GitHub again
 
@@ -444,7 +483,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.6 release notes](docs/releases/RELEASE-NOTES-1.2.6.md).
+See [1.2.7 release notes](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -570,7 +609,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.6 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.7 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -607,7 +646,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.6   remoteVersion: 1.2.6   via: "git"
+localVersion: 1.2.7   remoteVersion: 1.2.7   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -632,7 +671,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.6/dsh-purge-022-1.2.6.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to
