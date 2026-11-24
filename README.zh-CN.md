@@ -4,15 +4,15 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.4</strong></p>
+<p align="center"><strong>Version 1.2.5</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/devin667/dsh-purge-022/stargazers"><img src="https://img.shields.io/github/stars/devin667/dsh-purge-022?logo=github&label=Stars" alt="GitHub stars"></a>
-  <a href="https://github.com/devin667/dsh-purge-022/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-65a30d?style=flat" alt="MIT license"></a>
+  <a href="https://github.com/Luckinchan7/dsh-purge-022/stargazers"><img src="https://img.shields.io/github/stars/Luckinchan7/dsh-purge-022?logo=github&label=Stars" alt="GitHub stars"></a>
+  <a href="https://github.com/Luckinchan7/dsh-purge-022/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-65a30d?style=flat" alt="MIT license"></a>
   <a href="https://awesome-dsh-plugin.com"><img src="https://awesome-dsh-plugin.com/badge.svg" alt="awesome · DSH plugin"></a>
   <a href="https://www.deepseek.com/harness/"><img src="https://img.shields.io/badge/dsh-0.2.2--rc.5-blue" alt="DSH"></a>
   <br>
@@ -38,7 +38,9 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
-- [1.2.4 修了什么](#123-修了什么换包守卫不再报在等其实没人)
+- [1.2.5 修了什么](#125-修了什么项目迁到新账号)
+- [1.2.4 修了什么](#124-修了什么不再闪窗换完包自己退场)
+- [1.2.3 修了什么](#123-修了什么换包守卫不再报在等其实没人)
 - [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)
 - [1.2.1 修了什么](#121-修了什么让已写入真的变成已生效)
 - [安装](#安装)
@@ -82,7 +84,7 @@
 
 ## 署名要求
 
-**借用本项目的名称、思路、代码或提示词，必须署名，并写明来源仓库：** [devin667/dsh-purge-022](https://github.com/devin667/dsh-purge-022)，及其上游 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)。
+**借用本项目的名称、思路、代码或提示词，必须署名，并写明来源仓库：** [Luckinchan7/dsh-purge-022](https://github.com/Luckinchan7/dsh-purge-022)，及其上游 [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge)。
 
 ## 📌 非盈利公益项目，严禁任何主体用于商业售卖、付费倒卖或黑灰产牟利，仅供技术参考。
 
@@ -98,7 +100,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.4）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.5）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -109,7 +111,43 @@
 
 ---
 
-<a id="whatsnew"></a>
+<a id="125-what"></a>
+
+## 1.2.5 修了什么：项目迁到新账号
+
+原 GitHub 账号 `devin667` 被停用，仓库与 Release 全部对外 404 —— 匿名访问
+`/users/devin667` 与仓库都返回 Not Found，带 token 则是
+`Sorry. Your account was suspended`。项目整体迁到 `Luckinchan7/dsh-purge-022`。
+
+这一版只改字符串常量，不动任何宿主补丁。
+
+### 改了哪些位置
+
+| 文件 | 位置 |
+|---|---|
+| `lib/update.js` | `const REPO` 常量、报错示例文案 |
+| `lib/redteam/ui.js` | `githubRepoOf()` 兜底值 |
+| `client.js` | `welcome.repo` 中英文两处 |
+| `package.json` | `repository` / `homepage` / `bugs` / `publishConfig` 共 6 处 |
+| `README.md` / `README.zh-CN.md` | badge、链接、安装命令、更新源说明 |
+
+### 内部标识一个没动
+
+配置目录 `$DSH_HOME/dsh-purge`（`tuning.json` / `unpacked-asar.json` /
+`refusal-log.jsonl` 都在这里）、路由前缀 `/dsh-purge/*`、Cordis section 名、
+npm 包名 `dsh-purge-022` —— 全部保持原样，所以升级不会丢本地状态。
+
+### 已经装过 1.2.x 的怎么办
+
+什么都不用做。`readRepoOverride()` 读 `$DSH_HOME/dsh-purge/repo.json`，
+没有该文件就走新常量。之前手动填过旧仓库名的，面板「更新源」一栏清空
+→「保存更新源」即可回落默认。
+
+完整说明见 [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)。
+
+---
+
+<a id="124-what"></a>
 
 ## 1.2.4 修了什么：不再闪窗，换完包自己退场
 
@@ -198,7 +236,7 @@ CreateObject("WScript.Shell").Run "<完整 powershell 命令行>", 0, False
 13 处 URL 模板（codeload zip/tar、raw、jsdelivr、api commits/tags/contents）全部改用 `activeRepo()`。
 面板更新卡片下面多一行「更新源」输入框 + 保存 + 恢复默认，改完立刻重探一次，成不成当场看得到。
 
-完整说明见 [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) 与 [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)。
+完整说明见 [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md)。
 
 ---
 
@@ -301,7 +339,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -309,19 +347,20 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
 ### 方式二：面板一键升级
 
-已经装过 1.2.x 的：插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。更新源是本仓库的 GitHub Release，不依赖 npm；仓库所在的账号已被停用，所以这一步现在必须换成镜像地址，详见 [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)。
+已经装过 1.2.x 的：插件面板 →「重新检查」→「更新」。更新源是本仓库的 GitHub Release，不依赖 npm。
+想换成镜像仓库就在「更新源」一栏填 `owner/repo` →「保存更新源」→「重新检查」，详见 [1.2.2 修了什么](#122-修了什么更新源可切换--不再假报已是最新)。
 
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  remoteUnreadable:true   ← 账号封停时的真实读数
-error: 更新源 devin667/dsh-purge-022 打不开 HTTP 404：账号被停用或仓库已改名
+ok:true  hasUpdate:false  localVersion:1.2.4  remoteVersion:1.2.4
+repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
 ### 方式三：本地 tarball
@@ -473,7 +512,7 @@ dir $env:USERPROFILE\.dsh\profiles\
 `dsh` 不在 PATH 就告诉用户后停止。
 
 ```sh
-dsh plugin --profile web add --ignore-scripts https://github.com/devin667/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
+dsh plugin --profile web add --ignore-scripts https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.1/dsh-purge-022-1.2.1.tgz
 ```
 
 命令结束后，提醒用户：完全退出并重启 `dsh web`，再点会话标题旁的 **dsh-purge**，在「清洗」里点「应用」。然后停止。
@@ -511,7 +550,7 @@ $cands | Select-Object -Unique | Where-Object { $_ -and (Test-Path (Join-Path $_
 **2. 把插件放到 profile 的 `node_modules/dsh-purge-022`**（目录名必须是 `dsh-purge-022`，其 `package.json` 里 `"name"` 也必须是 `dsh-purge-022`）。
 
 ```sh
-git clone https://github.com/devin667/dsh-purge-022.git /tmp/dsh-purge-022
+git clone https://github.com/Luckinchan7/dsh-purge-022.git /tmp/dsh-purge-022
 cp -r /tmp/dsh-purge-022 "$DSH_HOME/profiles/desktop/node_modules/dsh-purge-022"
 rm -rf "$DSH_HOME/profiles/desktop/node_modules/dsh-purge-022/.git"
 ```
@@ -777,7 +816,7 @@ flowchart LR
 
 ## 更新
 
-每一版改了什么、安装包在 [Releases](https://github.com/devin667/dsh-purge-022/releases)。
+每一版改了什么、安装包在 [Releases](https://github.com/Luckinchan7/dsh-purge-022/releases)。
 
 面板里的「检查更新 / 更新到 x.y.z」读的是本仓库的 GitHub Release 资产（`lib/update.js`），不依赖 npm registry。发新版时把 `package.json` 的版本号改掉、写 `docs/releases/RELEASE-NOTES-<版本>.md`、打 tag 推上去，再上传 tgz 与 `SHA256SUMS-<版本>` 即可。
 

@@ -1,16 +1,16 @@
-# dsh-purge-022 1.2.4 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.5 — DeepSeek Harness 0.2.2 适配分支
 
-[![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/devin667/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.4-16a34a)](https://github.com/devin667/dsh-purge-022/releases/tag/v1.2.4)
+[![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
+[![version](https://img.shields.io/badge/version-1.2.5-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.5)
 [![patches](https://img.shields.io/badge/patches-90%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)
 
-> **更新源现状**：`devin667` 这个 GitHub 账号已被停用，仓库与 Release 对外不可达（匿名 404，带 token 403
-> `Sorry. Your account was suspended`）。1.2.2 因此把更新源做成可切换的：面板「更新源」一栏填任意
-> `owner/repo` 镜像即可继续查更新，本机已装的部分不受影响。
+> **更新源**：`Luckinchan7/dsh-purge-022`。原 `devin667` 账号已被 GitHub 停用（仓库与 Release 对外 404），
+> 项目已整体迁到新账号。1.2.2 起更新源做成可切换的：面板「更新源」一栏填任意 `owner/repo`
+> 镜像即可继续查更新，本机已装的部分不受影响。
 
 ![banner](docs/banner.svg)
 
@@ -26,11 +26,49 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.4）** |
+| **0.2.2-rc.5** | **本版（1.2.5）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+<a id="125-what"></a>
+
+### 1.2.5 修了什么：项目迁到新账号
+
+原 GitHub 账号 `devin667` 被停用，仓库与 Release 全部对外 404 —— 匿名访问
+`/users/devin667` 与仓库都返回 Not Found，带 token 则是
+`Sorry. Your account was suspended`。项目整体迁到 `Luckinchan7/dsh-purge-022`。
+
+这一版只改字符串常量，不动任何宿主补丁。
+
+### 改了哪些位置
+
+| 文件 | 位置 |
+|---|---|
+| `lib/update.js` | `const REPO` 常量、报错示例文案 |
+| `lib/redteam/ui.js` | `githubRepoOf()` 兜底值 |
+| `client.js` | `welcome.repo` 中英文两处 |
+| `package.json` | `repository` / `homepage` / `bugs` / `publishConfig` 共 6 处 |
+| `README.md` / `README.zh-CN.md` | badge、链接、安装命令、更新源说明 |
+
+### 内部标识一个没动
+
+配置目录 `$DSH_HOME/dsh-purge`（`tuning.json` / `unpacked-asar.json` /
+`refusal-log.jsonl` 都在这里）、路由前缀 `/dsh-purge/*`、Cordis section 名、
+npm 包名 `dsh-purge-022` —— 全部保持原样，所以升级不会丢本地状态。
+
+### 已经装过 1.2.x 的怎么办
+
+什么都不用做。`readRepoOverride()` 读 `$DSH_HOME/dsh-purge/repo.json`，
+没有该文件就走新常量。之前手动填过旧仓库名的，面板「更新源」一栏清空
+→「保存更新源」即可回落默认。
+
+完整说明见 [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md)。
+
+---
+
+<a id="124-what"></a>
 
 ### 1.2.4 修的是什么：不再闪窗，换完包自己退场
 
@@ -157,7 +195,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.4 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.5 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -187,8 +225,8 @@ if (parsed.kind !== "registry" || parsed.name !== bundle.name || parsed.range?.i
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:true
-error: 更新源 devin667/dsh-purge-022 打不开 HTTP 404：账号被停用或仓库已改名。可在面板把更新源换成镜像仓库。
-repo:  devin667/dsh-purge-022  override:false
+error: 更新源 Luckinchan7/dsh-purge-022 打不开 HTTP 404：账号被停用或仓库已改名。可在面板把更新源换成镜像仓库。
+repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
 换成可读镜像后立刻恢复：
@@ -227,7 +265,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <镜像仓库>/releases/download/v1.2.4/dsh-purge-022-1.2.4.tgz
+  <镜像仓库>/releases/download/v1.2.5/dsh-purge-022-1.2.5.tgz
 ```
 
 本地文件同理：
@@ -235,7 +273,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.4.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.5.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「更新源」填镜像仓库 →「保存更新源」→「重新检查」→「更新」。仓库地址没变时这一步会报「账号被停用或仓库已改名」，不是网络问题。
@@ -301,6 +339,7 @@ verify-rc216          48 passed    更新源切换 / 假报已最新 / 两种包
 
 ### 文档
 
+- [1.2.5 发行说明](docs/releases/RELEASE-NOTES-1.2.5.md) —— 迁到新账号的完整说明
 - [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) —— 换包守卫假 pending 的完整来龙去脉
 - [1.2.2 发行说明](docs/releases/RELEASE-NOTES-1.2.2.md) —— 更新源切换与假报已最新
 - [1.2.1 发行说明](docs/releases/RELEASE-NOTES-1.2.1.md) —— 空闲换包守卫
@@ -320,11 +359,42 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.4)** |
+| **0.2.2-rc.5** | **this release (1.2.5)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
+
+<a id="125-what"></a>
+
+### 1.2.5 fixes: the project moved to a new account
+
+The original GitHub account `devin667` was suspended. The repository and every
+Release asset return 404 — anonymous access to `/users/devin667` and the repo both
+give Not Found, and an authenticated call returns `Sorry. Your account was suspended`.
+The project now lives at `Luckinchan7/dsh-purge-022`.
+
+This release changes string constants only. No host patch is touched.
+
+| File | What changed |
+|---|---|
+| `lib/update.js` | the `REPO` constant and the error example text |
+| `lib/redteam/ui.js` | `githubRepoOf()` fallback value |
+| `client.js` | `welcome.repo`, both locales |
+| `package.json` | `repository` / `homepage` / `bugs` / `publishConfig` (6 spots) |
+| `README.md` / `README.zh-CN.md` | badges, links, install commands, update-source notes |
+
+Internal identifiers are untouched — config dir `$DSH_HOME/dsh-purge`, route prefix
+`/dsh-purge/*`, Cordis section names, npm package name `dsh-purge-022` — so upgrading
+loses no local state.
+
+If you already run 1.2.x, do nothing. `readRepoOverride()` reads
+`$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
+Clear the Update source field and save to drop a manually pinned old value.
+
+See [1.2.5 release notes](docs/releases/RELEASE-NOTES-1.2.5.md).
+
+---
 
 ### What 1.2.4 fixes: no more flashing console, and the guard retires itself
 
@@ -448,7 +518,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.4 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.5 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -477,8 +547,8 @@ The built-in updater reads this repo's GitHub Releases (`checkUpdate()` / `apply
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:true
-error: update source devin667/dsh-purge-022 returned HTTP 404 — account suspended or repo renamed
-repo:  devin667/dsh-purge-022  override:false
+error: update source Luckinchan7/dsh-purge-022 returned HTTP 404 — account suspended or repo renamed
+repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
 Pointing it at a readable mirror restores the check immediately:
@@ -504,7 +574,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  <mirror-repo>/releases/download/v1.2.4/dsh-purge-022-1.2.4.tgz
+  <mirror-repo>/releases/download/v1.2.5/dsh-purge-022-1.2.5.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → set the update source to a mirror → Save → Check again → Update. With the original repo it will report "account suspended or repo renamed", which is not a network problem.

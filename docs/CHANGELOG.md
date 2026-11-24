@@ -1,3 +1,51 @@
+## v1.2.5 — 2026-11-25
+
+项目迁到新账号，更新源重新可达。
+
+**为什么会迁**
+
+原账号 `devin667` 被 GitHub 停用：`GET /repos/devin667/dsh-purge-022`、`/user`、
+`/rate_limit` 全部返回 `{"message":"Sorry. Your account was suspended","status":403}`，
+匿名访问 `/users/devin667` 与仓库均 404，Release 资产直链 404。仓库在公开视野里
+整体消失，插件 `checkUpdate()` 也因此读不到任何远端版本。
+
+申诉通道全部实测走不通（详见 `docs/appeal-instructions.md` 的实测表）：邮件被
+Spamhaus 挡在网关外（`550 5.7.1 ... blocked using Spamhaus`）、`support.github.com`
+的申诉表单要求先登录、`signup` / `password_reset` 对无 JS 客户端一律 403。
+所以直接换账号，不动原账号的任何历史。
+
+**改了什么**
+
+更新源从 `devin667/dsh-purge-022` 换成 `Luckinchan7/dsh-purge-022`，共 6 个文件：
+
+| 文件 | 位置 |
+|---|---|
+| `lib/update.js` | `const REPO` 常量、报错示例文案 |
+| `lib/redteam/ui.js` | `githubRepoOf()` 兜底值 |
+| `client.js` | `welcome.repo` 中英文两处 |
+| `package.json` | `repository` / `homepage` / `bugs` / `publishConfig` 共 6 处 |
+| `README.md` | badge、链接、「更新源现状」整段重写 |
+| `README.zh-CN.md` | 安装命令、clone 地址、更新源说明共 9 处 |
+
+`tests/verify-rc216.mjs` 的 8 处断言基线同步更新（不更新会红，这是预期）。
+
+**没改什么**
+
+内部标识全部保持原样，避免老用户的本地状态失联：
+
+- 配置目录 `$DSH_HOME/dsh-purge`（`tuning.json` / `unpacked-asar.json` /
+  `refusal-log.jsonl` 都在这里）
+- 路由前缀 `/dsh-purge/*`
+- Cordis section 名、组合 `id: dsh-purge*`
+- npm 包名 `dsh-purge-022`（与仓库同名，未变）
+
+**老用户怎么办**
+
+已装 1.2.x 的不用做任何事 —— 插件里 `readRepoOverride()` 读的是
+`$DSH_HOME/dsh-purge/repo.json`，没有该文件就走新常量。如果之前手动填过旧仓库名，
+面板「更新源」一栏清空 →「保存更新源」即可回落默认。
+
+自检 9 组 204 项全过。
 ## v1.2.4 — 2026-11-21
 
 守卫不再闪窗，换完包自己退场。

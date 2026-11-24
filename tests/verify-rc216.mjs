@@ -42,13 +42,13 @@ const repoJson = path.join(HOME, "dsh-purge", "repo.json");
 
 // ---- 1. 换源读写
 console.log("\n[1] 更新源覆盖读写");
-ok("默认走常量里的仓库", upd.activeRepo() === "devin667/dsh-purge-022", upd.activeRepo());
+ok("默认走常量里的仓库", upd.activeRepo() === "Luckinchan7/dsh-purge-022", upd.activeRepo());
 ok("默认没有覆盖标记", upd.readRepoOverride().override === false);
 
 const swapped = upd.writeRepoOverride("someone/mirror-022");
 ok("写入后生效", upd.activeRepo() === "someone/mirror-022");
 ok("覆盖标记为真", swapped.override === true);
-ok("fallback 仍是原仓库", swapped.fallback === "devin667/dsh-purge-022");
+ok("fallback 仍是原仓库", swapped.fallback === "Luckinchan7/dsh-purge-022");
 ok("落盘成 repo.json", fs.existsSync(repoJson));
 
 let rejected = "";
@@ -63,10 +63,10 @@ ok("被拒后仍是上一个值", upd.activeRepo() === "someone/mirror-022");
 // ---- 2. 撤销覆盖
 console.log("\n[2] 撤销覆盖");
 const back = upd.writeRepoOverride("");
-ok("恢复默认", back.repo === "devin667/dsh-purge-022" && back.override === false);
+ok("恢复默认", back.repo === "Luckinchan7/dsh-purge-022" && back.override === false);
 ok("repo.json 已删除", !fs.existsSync(repoJson));
 
-const bySame = upd.writeRepoOverride("devin667/dsh-purge-022");
+const bySame = upd.writeRepoOverride("Luckinchan7/dsh-purge-022");
 ok("显式写成默认值等同于撤销", bySame.override === false && !fs.existsSync(repoJson));
 
 // ---- 3. describeProbe 的三种措辞
@@ -83,11 +83,11 @@ ok("连不上提示网络", /网络不通/.test(offlineText), offlineText);
 // 所以断言分两层——"不能可读"是硬要求，"具体是 404"允许重试后判定，
 // 否则这个自检会在网络不稳的机器上假红。
 console.log("\n[4] 真联网探一次（当前账号被停用，应报 missing/404）");
-let probe = await upd.probeRepo("devin667/dsh-purge-022");
+let probe = await upd.probeRepo("Luckinchan7/dsh-purge-022");
 for (let i = 0; i < 3 && probe.state !== "missing"; i += 1) {
   if (probe.state === "ok") break;
   await new Promise((r) => setTimeout(r, 400));
-  probe = await upd.probeRepo("devin667/dsh-purge-022");
+  probe = await upd.probeRepo("Luckinchan7/dsh-purge-022");
 }
 ok("仓库不可读", probe.state !== "ok", JSON.stringify(probe));
 if (probe.state === "missing") {
@@ -101,7 +101,7 @@ ok("远端读不到时置 remoteUnreadable", live.remoteUnreadable === true);
 ok("hasRemote 不再被本机条目顶成 true", live.lanes.stable.hasRemote === false, String(live.lanes.stable.hasRemote));
 ok("remoteVersion 不再回填本地版本", !live.remoteVersion || live.remoteVersion !== live.localVersion, String(live.remoteVersion));
 ok("有可读的原因而不是空错误", Boolean(live.error), String(live.error));
-ok("结果里带当前 repo", live.repo === "devin667/dsh-purge-022", String(live.repo));
+ok("结果里带当前 repo", live.repo === "Luckinchan7/dsh-purge-022", String(live.repo));
 
 // ---- 5. 换成能读的仓库后，hasRemote 恢复
 console.log("\n[5] 换成可读仓库后恢复");
@@ -121,7 +121,7 @@ ok("op=repo 返回 repoChanged", opResult.repoChanged === true);
 ok("op=repo 后 repo 已切换", opResult.repo === "nodejs/node", String(opResult.repo));
 ok("op=repo 同时带上探测结果", typeof opResult.error === "string" || opResult.error === undefined);
 const opReset = await upd.handleUpdateOp({ op: "repo", repo: "" });
-ok("op=repo 空值回到默认", opReset.repo === "devin667/dsh-purge-022", String(opReset.repo));
+ok("op=repo 空值回到默认", opReset.repo === "Luckinchan7/dsh-purge-022", String(opReset.repo));
 ok("复位后 override 为假", opReset.override === false);
 
 // ---- 7. 改名遗留：profile 认两种包名
