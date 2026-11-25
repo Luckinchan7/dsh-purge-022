@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.7 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.8 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.7-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.7)
+[![version](https://img.shields.io/badge/version-1.2.8-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.8)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,11 +27,28 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.7）** |
+| **0.2.2-rc.5** | **本版（1.2.8）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+<a id="127-what"></a>
+
+### 1.2.8 修了什么：面板上每条补丁都说出自己是谁
+
+面板的补丁列表从 #85 起全显示成 `patch.85`、`patch.92`、`patch.101`…… 因为面板用 `t("patch." + id)` 取标签，而字典只写到 84。1.2.7 把表扩到 131 条，这排裸键名全露出来了。
+
+这一版补齐 56 条中英标签（#85–#140），并且加了两层兜底：`/dsh-purge/status` 现在下发 `patch_names`（英文代号）与 `patch_descs`（补丁自带的中英说明），某条补丁即便漏了字典键也会退到 `desc`，最后才退到代号——**`patch.N` 不会再出现在界面上**。
+
+| 改的地方 | 之前 | 现在 |
+|---|---|---|
+| 标签来源 | 只有 i18n 字典（1–84） | 字典 → `patch_descs` → `patch_names` |
+| #85–#140 标签 | 无，显示 `patch.N` | 中英各 56 条 |
+| 长说明 | 一行塞不下 | 主行名称 + 次行补充（>120 字截断） |
+| 新增补丁忘写字典 | 直接露出键名 | 自动退到 `desc` |
+
+完整列表见 [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md)。
 
 <a id="127-what"></a>
 
@@ -239,7 +256,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.7 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.8 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -282,7 +299,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.7  remoteVersion:1.2.7  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.8  remoteVersion: 1.2.8  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -314,7 +331,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
 ```
 
 本地文件同理：
@@ -322,7 +339,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.7.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.8.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -377,7 +394,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 - 探一个不存在的仓库时 `probeRepo` 必须报 `missing`/`404`，不能报 `ok`（网络抖动时允许降级成 `offline`，此时跳过状态码断言）
 - 该状态下 `checkUpdate` 必须置 `remoteUnreadable: true`、`hasRemote: false`，且 `remoteVersion` 不回填本地版本
-- 默认源 `Luckinchan7/dsh-purge-022` 可读：`hasRemote: true`、`remoteVersion: "1.2.7"`
+- 默认源 `Luckinchan7/dsh-purge-022` 可读：`hasRemote: true`、`remoteVersion: "1.2.8"`
 - 换成 `nodejs/node` 后 `hasRemote` 恢复、`override: true`
 - 恢复默认后 `repo.json` 被删、`override: false`
 
@@ -390,6 +407,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) —— 补丁标签补齐与三层兜底
 - [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md) —— #100–#140 容量补丁与 #19 失效根因
 - [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md) —— 迁到新账号的完整说明
 - [1.2.4 发行说明](docs/releases/RELEASE-NOTES-1.2.4.md) —— 换包守卫假 pending 的完整来龙去脉
@@ -411,13 +429,21 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 | Host | Use |
 |---|---|
-| **0.2.2-rc.5** | **this release (1.2.7)** |
+| **0.2.2-rc.5** | **this release (1.2.8)** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1 (backward compatible) |
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
 <a id="126-what"></a>
+
+### 1.2.8 fixes: every patch now says what it does
+
+The patch list showed `patch.85`, `patch.92`, `patch.101`… for everything from #85 up, because the panel resolves labels with `t("patch." + id)` and the dictionary stopped at 84. Version 1.2.7 grew the table to 131 entries, which made the raw keys obvious.
+
+This release fills in 56 labels per language (#85–#140) and adds two fallbacks: `/dsh-purge/status` now ships `patch_names` (the English identifier) and `patch_descs` (the bilingual description carried by each patch). A patch missing its dictionary key falls back to `desc`, then to the identifier — **`patch.N` no longer reaches the UI**.
+
+See [1.2.8 release notes](docs/releases/RELEASE-NOTES-1.2.8.md).
 
 ### 1.2.7 fixes: the patch table grows to 131 entries and every capacity cap gets room
 
@@ -483,7 +509,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.7 release notes](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.8 release notes](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -609,7 +635,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.7 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.8 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -646,7 +672,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.7   remoteVersion: 1.2.7   via: "git"
+localVersion: 1.2.8   remoteVersion: 1.2.8   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -671,7 +697,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

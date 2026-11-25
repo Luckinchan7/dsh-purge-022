@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.7</strong></p>
+<p align="center"><strong>Version 1.2.8</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.8 修了什么](#128-修了什么面板上每条补丁都说出自己是谁)
 - [1.2.7 修了什么](#127-修了什么补丁表扩到-131-条容量类上限全面抬升)
 - [1.2.6 修了什么](#126-修了什么更新检查补上出网代理)
 - [1.2.5 修了什么](#125-修了什么项目迁到新账号)
@@ -102,7 +103,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.7）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.8）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -112,6 +113,31 @@
 对不上的补丁会显示待应用或跳过，不会乱改文件。
 
 ---
+
+<a id="127-what"></a>
+
+## 1.2.8 修了什么：面板上每条补丁都说出自己是谁
+
+面板的补丁列表从 #85 起全显示成 `patch.85`、`patch.92`、`patch.101`…… 因为面板用 `t("patch." + id)` 取标签，而字典只写到 84。1.2.7 把表扩到 131 条，这排裸键名全露出来了。
+
+这一版补齐 56 条中英标签（#85–#140），并加了两层兜底。
+
+| 改的地方 | 之前 | 现在 |
+|---|---|---|
+| 标签来源 | 只有 i18n 字典（1–84） | 字典 → `patch_descs` → `patch_names` |
+| #85–#140 标签 | 无，显示 `patch.N` | 中英各 56 条 |
+| 长说明 | 一行塞不下 | 主行名称 + 次行补充（>120 字截断） |
+| 新增补丁忘写字典 | 直接露出键名 | 自动退到 `desc` |
+
+| # | 面板显示 |
+|---|---|
+| 85 | UI 发消息一律新 turn（消 steer 竞态） |
+| 92 | host 每次退出写 code/signal/stderr 日志 |
+| 100 | 持久 shell 输出 16KB → 256KB |
+| 124 | 允许 read 二进制文件（有损解码） |
+| 140 | CUA 元素 2000→2 万、拖拽 20→240 |
+
+完整列表见 [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md)。
 
 <a id="127-what"></a>
 
@@ -489,7 +515,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -497,7 +523,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.7/dsh-purge-022-1.2.7.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -509,7 +535,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion:1.2.7  remoteVersion:1.2.7
+ok:true  hasUpdate:false  localVersion: 1.2.8  remoteVersion: 1.2.8
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

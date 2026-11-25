@@ -130,6 +130,39 @@ if (yml && fs.existsSync(yml)) {
   ok("#127 yml 里不再有 8192", !/thresholdChars: 8192/.test(y));
 }
 
+// ── 5b. 每条补丁都要在面板里说出自己是谁 ──────────────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  const lines = clientSrc.split("\n");
+  const zh = new Map();
+  const en = new Map();
+  let block = 0;
+  for (const line of lines) {
+    if (/"patch\.1":/.test(line)) block += 1;
+    const m = line.match(/"patch\.(\d+)":\s*"(.*)",\s*$/);
+    if (!m) continue;
+    if (block === 1) zh.set(Number(m[1]), m[2]);
+    else if (block === 2) en.set(Number(m[1]), m[2]);
+  }
+  ok("i18n 两个语言块都在", block === 2, `找到 ${block} 个`);
+  const LIMIT_IDS = LIMIT_PATCHES.map((p) => p.id).sort((a, b) => a - b);
+  const missZh = LIMIT_IDS.filter((id) => !zh.has(id));
+  const missEn = LIMIT_IDS.filter((id) => !en.has(id));
+  ok("限额补丁中文标签无缺失", missZh.length === 0, missZh.length ? `缺 ${missZh.join(",")}` : `${LIMIT_IDS.length} 条`);
+  ok("限额补丁英文标签无缺失", missEn.length === 0, missEn.length ? `缺 ${missEn.join(",")}` : `${LIMIT_IDS.length} 条`);
+  // 全表也要覆盖，不只限额那批
+  const ALL_IDS = core.ALL_PATCHES.map((p) => p.id);
+  const allMiss = ALL_IDS.filter((id) => !zh.has(id) && !en.has(id));
+  ok("所有补丁至少有一种语言标签", allMiss.length === 0, allMiss.length ? `裸奔 ${allMiss.join(",")}` : `共 ${ALL_IDS.length} 条`);
+  // 不能再出现 patch.NN 这种原始键名直接露出来的情况
+  const rawKeys = ALL_IDS.filter((id) => !zh.has(id) && !en.has(id));
+  ok("面板不会渲染出 patch.<id> 原始键", rawKeys.length === 0);
+  ok("client 用 patch_names 兜底", /state\.patch_names/.test(clientSrc));
+  ok("client 用 patch_descs 兜底", /state\.patch_descs/.test(clientSrc));
+  ok("status 载荷带 patch_names", /patch_names,/.test(fs.readFileSync(path.join(root, "lib", "index.js"), "utf8")));
+  ok("status 载荷带 patch_descs", /patch_descs,/.test(fs.readFileSync(path.join(root, "lib", "index.js"), "utf8")));
+}
+
 // ── 6. 产物与合计 ────────────────────────────────────────────
 ok("ALL_PATCHES 含全部限额补丁", LIMIT_PATCHES.every((p) => core.ALL_PATCHES.some((q) => q.id === p.id)));
 ok("ALL_PATCHES id 总量", new Set(core.ALL_PATCHES.map((p) => p.id)).size === core.ALL_PATCHES.length, `共 ${core.ALL_PATCHES.length} 条`);
