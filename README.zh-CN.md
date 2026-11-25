@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.8</strong></p>
+<p align="center"><strong>Version 1.2.9</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.9 修了什么](#129-修了什么右下角那个胶囊可以关掉)
 - [1.2.8 修了什么](#128-修了什么面板上每条补丁都说出自己是谁)
 - [1.2.7 修了什么](#127-修了什么补丁表扩到-131-条容量类上限全面抬升)
 - [1.2.6 修了什么](#126-修了什么更新检查补上出网代理)
@@ -103,7 +104,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.8）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.9）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -115,6 +116,32 @@
 ---
 
 <a id="127-what"></a>
+
+## 1.2.9 修了什么：右下角那个胶囊可以关掉
+
+`PurgeLauncher` 挂在 `shell.overlay`，`position:fixed; right:16px; bottom:16px`，面板没开时就一直浮在右下角。对已经在用的人来说它只是挡事。
+
+`tuning.json` 新增两个开关，面板「界面入口」一节可以勾：
+
+| 键 | 默认 | 关掉后 |
+|---|---|---|
+| `launcher` | `true` | 右下角悬浮按钮消失 |
+| `chips` | `true` | 首页模式行、对话标签栏的小挂件消失 |
+
+只关 `launcher` 时 chip 仍在，点 chip 照样开面板；两个都关还有 `/purge` 命令兜底。
+
+改这项不用重启——`useEntries()` 靠面板保存时派发的 `dsh-purge:entries` 事件刷新，勾完立刻生效。关掉时不只不渲染，还会把已经 portal 到宿主 DOM 的节点 `removeChild` 掉，否则会留一个空壳占位。
+
+| 改的地方 | 之前 | 现在 |
+|---|---|---|
+| 悬浮按钮 | 常驻，无法关闭 | `launcher:false` |
+| 页内 chip | 常驻 | `chips:false` |
+| 关掉后 | — | 真摘 DOM 节点，不留空壳 |
+| 生效时机 | — | 勾完立刻，不用重启 |
+
+完整说明见 [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md)。
+
+<a id="128-what"></a>
 
 ## 1.2.8 修了什么：面板上每条补丁都说出自己是谁
 
@@ -515,7 +542,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -523,7 +550,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -535,7 +562,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.8  remoteVersion: 1.2.8
+ok:true  hasUpdate:false  localVersion: 1.2.9  remoteVersion: 1.2.9
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

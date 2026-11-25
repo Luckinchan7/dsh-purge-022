@@ -163,6 +163,23 @@ if (yml && fs.existsSync(yml)) {
   ok("status 载荷带 patch_descs", /patch_descs,/.test(fs.readFileSync(path.join(root, "lib", "index.js"), "utf8")));
 }
 
+// ── 5c. 界面入口开关要走 tuning，不能是硬编码 ─────────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  const tuningSrc = fs.readFileSync(path.join(root, "lib", "tuning.js"), "utf8");
+  const indexSrc = fs.readFileSync(path.join(root, "lib", "index.js"), "utf8");
+  ok("tuning 有 launcher 开关", /launcher: true/.test(tuningSrc));
+  ok("tuning 有 chips 开关", /chips: true/.test(tuningSrc));
+  ok("status 载荷带 tuning", /tuning: \(\(\) => \{ try \{ return readTuning/.test(indexSrc));
+  ok("client 有 useEntries 钩子", /function useEntries\(\)/.test(clientSrc));
+  ok("PurgeLauncher 读 launcher 开关", /const entries = useEntries\(\);\s*\n\s*if \(entries\.launcher === false\) return null;/.test(clientSrc));
+  ok("Hero mount 读 chips 开关", /const entries = useEntries\(\);[\s\S]{0,400}entries\.chips === false/.test(clientSrc));
+  ok("TabRow mount 读 chips 开关", /function TabRowPurgeMount[\s\S]{0,400}entries\.chips === false/.test(clientSrc));
+  ok("关掉后会把已挂的节点摘掉", /live\.parentNode\.removeChild\(live\)/.test(clientSrc));
+  ok("面板有 UiEntrySection", /function UiEntrySection/.test(clientSrc) && /h\(UiEntrySection, \{ onSaved: loadAll \}\)/.test(clientSrc));
+  ok("保存后派发刷新事件", /dsh-purge:entries/.test(clientSrc));
+}
+
 // ── 6. 产物与合计 ────────────────────────────────────────────
 ok("ALL_PATCHES 含全部限额补丁", LIMIT_PATCHES.every((p) => core.ALL_PATCHES.some((q) => q.id === p.id)));
 ok("ALL_PATCHES id 总量", new Set(core.ALL_PATCHES.map((p) => p.id)).size === core.ALL_PATCHES.length, `共 ${core.ALL_PATCHES.length} 条`);

@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.8 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.9 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.8-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.8)
+[![version](https://img.shields.io/badge/version-1.2.9-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.9)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,13 +27,30 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.8）** |
+| **0.2.2-rc.5** | **本版（1.2.9）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
 <a id="127-what"></a>
+
+### 1.2.9 修了什么：右下角那个胶囊可以关掉
+
+`PurgeLauncher` 挂在 `shell.overlay`，`position:fixed; right:16px; bottom:16px`，面板没开时就一直浮在右下角。对已经在用的人来说它只是挡事。
+
+`tuning.json` 新增两个开关，面板「界面入口」一节可以勾：
+
+| 键 | 默认 | 关掉后 |
+|---|---|---|
+| `launcher` | `true` | 右下角悬浮按钮消失 |
+| `chips` | `true` | 首页模式行、对话标签栏的小挂件消失 |
+
+只关 `launcher` 时 chip 仍在，点 chip 照样开面板；两个都关还有 `/purge` 命令兜底。勾完立刻生效，不用重启。
+
+完整说明见 [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md)。
+
+<a id="128-what"></a>
 
 ### 1.2.8 修了什么：面板上每条补丁都说出自己是谁
 
@@ -256,7 +273,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.8 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.9 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -299,7 +316,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.8  remoteVersion: 1.2.8  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.9  remoteVersion: 1.2.9  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -331,7 +348,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
 ```
 
 本地文件同理：
@@ -339,7 +356,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.8.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.9.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -407,6 +424,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md) —— 界面入口开关
 - [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) —— 补丁标签补齐与三层兜底
 - [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md) —— #100–#140 容量补丁与 #19 失效根因
 - [1.2.6 发行说明](docs/releases/RELEASE-NOTES-1.2.6.md) —— 迁到新账号的完整说明
@@ -436,6 +454,21 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
 <a id="126-what"></a>
+
+### 1.2.9 fixes: the bottom-right capsule can be turned off
+
+`PurgeLauncher` lives on the `shell.overlay` slot with `position:fixed; right:16px; bottom:16px`, so it floats over the composer whenever the panel is closed.
+
+Two new switches in `tuning.json`, exposed in the panel's "UI entries" section:
+
+| Key | Default | When off |
+|---|---|---|
+| `launcher` | `true` | The floating button disappears |
+| `chips` | `true` | The chips in the hero row and tab row disappear |
+
+Turning off only `launcher` keeps the chips, so the panel is still one click away; turning off both leaves the `/purge` command. Changes apply immediately.
+
+See [1.2.9 release notes](docs/releases/RELEASE-NOTES-1.2.9.md).
 
 ### 1.2.8 fixes: every patch now says what it does
 
@@ -509,7 +542,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.8 release notes](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.9 release notes](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -635,7 +668,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.8 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.9 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -672,7 +705,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.8   remoteVersion: 1.2.8   via: "git"
+localVersion: 1.2.9   remoteVersion: 1.2.9   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -697,7 +730,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.8/dsh-purge-022-1.2.8.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

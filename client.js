@@ -492,6 +492,11 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"patch.138": "fetch 正文 100k→2M、重定向 5→20",
 			"patch.139": "MCP 重连 10→100 次、退避 30s→300s",
 			"patch.140": "CUA 元素 2000→2 万、拖拽 20→240",
+			"ui.title": "界面入口",
+			"ui.hint": "关掉只是不画那个按钮，破甲本身不受影响；面板还能从对话标签栏或首页模式行打开，都不想要就再关掉下面那个。",
+			"ui.launcher": "右下角悬浮按钮",
+			"ui.chips": "首页与标签栏的小挂件",
+			"ui.saved": "已保存，立刻生效",
 			"status.unlocated": "未定位",
 			"status.na": "本端不需要",
 			"metric.unlocated": "还没定位到本机 Harness",
@@ -898,6 +903,11 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"patch.138": "fetch body 100k->2M, redirects 5->20",
 			"patch.139": "MCP reconnect 10->100, backoff 30s->300s",
 			"patch.140": "CUA elements 2000->20k, drag 20->240",
+			"ui.title": "UI entries",
+			"ui.hint": "Turning these off only hides the button; the patches themselves are unaffected. The panel stays reachable from the conversation tab row and the hero mode row.",
+			"ui.launcher": "Floating button (bottom right)",
+			"ui.chips": "Chips in hero and tab row",
+			"ui.saved": "Saved — applied immediately",
 			"status.na": "Not for this host",
 			"metric.sealed": "Official client found. Apply to unpack",
 			"metric.sealed.count": "Sealed",
@@ -1480,6 +1490,80 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 							disabled: busy,
 							onChange: (e) => save({ continueText: e.target.value }),
 						}),
+					),
+				),
+			);
+		}
+
+		function UiEntrySection({ onSaved }) {
+			const t = useT();
+			const [cfg, setCfg] = useState(null);
+			const [notice, setNotice] = useState({ kind: "idle", text: "" });
+			const [busy, setBusy] = useState(false);
+
+			useEffect(() => {
+				let dead = false;
+				apiJson("/dsh-purge/tuning")
+					.then((d) => {
+						if (dead || !d || !d.ok) return;
+						const tn = d.tuning || {};
+						setCfg({ launcher: tn.launcher !== false, chips: tn.chips !== false });
+					})
+					.catch(() => {});
+				return () => { dead = true; };
+			}, []);
+
+			const save = (patch) => {
+				if (!cfg || busy) return;
+				const next = Object.assign({}, cfg, patch);
+				setCfg(next);
+				setBusy(true);
+				apiJson("/dsh-purge/tuning", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify(patch),
+				})
+					.then((d) => {
+						if (d && d.ok) {
+							const tn = d.tuning || {};
+							setCfg({ launcher: tn.launcher !== false, chips: tn.chips !== false });
+							setNotice({ kind: "ok", text: t("ui.saved") });
+							if (typeof onSaved === "function") onSaved();
+							// 立刻让浮动按钮与 chip 跟上，不必等下一次轮询
+							try { window.dispatchEvent(new CustomEvent("dsh-purge:entries")); } catch { /* ignore */ }
+						} else {
+							setNotice({ kind: "error", text: t("err.save", { error: (d && d.error) || "" }) });
+						}
+					})
+					.catch((e) => setNotice({ kind: "error", text: t("err.save", { error: e.message }) }))
+					.finally(() => setBusy(false));
+			};
+
+			if (!cfg) return null;
+			return h("div", { className: "dshp-cr" },
+				h("div", { className: "dshp-sub" },
+					h("h4", null, t("ui.title")),
+					noticeNode(notice),
+				),
+				h("p", { className: "dshp-hint", style: { margin: "0 0 6px", color: "var(--dshp-mute)", fontSize: 12 } }, t("ui.hint")),
+				h("div", { className: "dshp-cr-row" },
+					h("label", null,
+						h("input", {
+							type: "checkbox",
+							checked: cfg.launcher,
+							disabled: busy,
+							onChange: (e) => save({ launcher: e.target.checked }),
+						}),
+						t("ui.launcher"),
+					),
+					h("label", null,
+						h("input", {
+							type: "checkbox",
+							checked: cfg.chips,
+							disabled: busy,
+							onChange: (e) => save({ chips: e.target.checked }),
+						}),
+						t("ui.chips"),
 					),
 				),
 			);
@@ -2150,6 +2234,7 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 				h("div", { className: "dshp-bar", "aria-hidden": "true" }, h("i", { style: { width: pct + "%" } })),
 				h(PatchGroups, { state: s }),
 				h(HooksDenySection, { onSaved: loadAll }),
+				h(UiEntrySection, { onSaved: loadAll }),
 				h("div", { className: "dshp-row", style: { marginTop: 14 } },
 					h(Btn, { kind: "primary", disabled: patchBusy || uninstallBusy || !overrideLoaded, onClick: () => doAction("apply", "action.apply") }, patchBusy ? t("btn.apply.busy") : t("btn.apply")),
 					h(Btn, { kind: "danger", disabled: patchBusy || uninstallBusy, onClick: () => doAction("revert", "action.revert") }, t("btn.revert")),
@@ -8745,9 +8830,48 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 			);
 		}
 
+		/*
+		 * 界面入口开关。一次读 /dsh-purge/tuning，之后靠面板保存时派发的
+		 * "dsh-purge:entries" 事件刷新，不必等下次轮询。
+		 * 读失败一律当作「开」——宁可多画一个按钮，也不要因为接口抽风把入口弄丢。
+		 */
+		let entriesCache = { launcher: true, chips: true };
+		const entriesListeners = new Set();
+		let entriesLoaded = false;
+		function useEntries() {
+			const [cfg, setCfg] = useState(entriesCache);
+			useEffect(() => {
+				let dead = false;
+				const fn = (next) => { if (!dead) setCfg(next); };
+				entriesListeners.add(fn);
+				const reload = () => {
+					apiJson("/dsh-purge/tuning")
+						.then((d) => {
+							if (dead || !d || !d.ok) return;
+							const tn = d.tuning || {};
+							entriesCache = { launcher: tn.launcher !== false, chips: tn.chips !== false };
+							entriesLoaded = true;
+							entriesListeners.forEach((cb) => { try { cb(entriesCache); } catch { /* ignore */ } });
+						})
+						.catch(() => {});
+				};
+				if (!entriesLoaded) reload();
+				const onEvt = () => reload();
+				try { window.addEventListener("dsh-purge:entries", onEvt); } catch { /* ignore */ }
+				return () => {
+					dead = true;
+					entriesListeners.delete(fn);
+					try { window.removeEventListener("dsh-purge:entries", onEvt); } catch { /* ignore */ }
+				};
+			}, []);
+			return cfg;
+		}
+
 		function PurgeLauncher() {
 			const t = useT();
 			const st = useDock();
+			const entries = useEntries();
+			if (entries.launcher === false) return null;
 			return h("button", {
 				type: "button",
 				className: "dshp-launch",
@@ -8762,12 +8886,23 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 		function HeroNewSessionMount() {
 			const t = useT();
 			const st = useDock();
+			const entries = useEntries();
 			const [host, setHost] = useState(null);
 			useEffect(() => {
 				let dead = false;
 				let warnedMiss = false;
 				const ensure = () => {
 					if (dead || typeof document === "undefined") return;
+					/* 关掉 chips 时把已经挂上去的节点撤掉，别留一个空壳占位 */
+					if (entries.chips === false) {
+						try {
+							const live = document.querySelector(":scope > .dshp-hero-chip, .dshp-hero-chip")
+								|| document.querySelector(".dshp-hero-chip");
+							if (live && live.parentNode) live.parentNode.removeChild(live);
+						} catch { /* ignore */ }
+						setHost((prev) => (prev ? null : prev));
+						return;
+					}
 					/* 多路挂点兜底:语义化 data-* 优先,class 子串模糊匹配兜底(不绑定具体 CSS Module 哈希) */
 					const row =
 						document.querySelector('[data-dsh-hero-workspace-row]') ||
@@ -8803,7 +8938,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					if (obs) obs.disconnect();
 					clearInterval(iv);
 				};
-			}, []);
+			}, [entries.chips]);
 			if (!host) return null;
 			const btn = h("button", {
 				type: "button",
@@ -8825,12 +8960,21 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 		function TabRowPurgeMount() {
 			const t = useT();
 			const st = useDock();
+			const entries = useEntries();
 			const [host, setHost] = useState(null);
 			useEffect(() => {
 				let dead = false;
 				let warnedMiss = false;
 				const ensure = () => {
 					if (dead || typeof document === "undefined") return;
+					if (entries.chips === false) {
+						try {
+							const live = document.querySelector(".dshp-tab-chip");
+							if (live && live.parentNode) live.parentNode.removeChild(live);
+						} catch { /* ignore */ }
+						setHost((prev) => (prev ? null : prev));
+						return;
+					}
 					/* 多路挂点兜底:data-* 优先,ARIA / class 子串兜底 */
 					const row =
 						document.querySelector("[data-conversation-tabs]") ||
@@ -8866,7 +9010,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					if (obs) obs.disconnect();
 					clearInterval(iv);
 				};
-			}, []);
+			}, [entries.chips]);
 			if (!host) return null;
 			const btn = h("button", {
 				type: "button",
