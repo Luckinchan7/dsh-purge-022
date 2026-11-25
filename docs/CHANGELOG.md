@@ -1,3 +1,83 @@
+## v1.2.10 — 2026-11-25
+
+红队模式从下拉里消失了。根因是 1.2.0 改包名时漏掉的两行插件引用。
+
+**现象**
+
+模式下拉里只剩「标准 / PTC / 极简 / 创造 / OPS / 无限制 / 无限制·子任务」，红队模式没了。
+
+`$DSH_HOME/redteam/preset-declare.json` 里写着：
+
+```json
+{ "ok": false, "phase": "registered-broken", "id": "redteam", "plugins": 19,
+  "broken": "persona (dsh-purge/redteam/persona): never started\nredteam-tools (dsh-purge/redteam/tools): never started" }
+```
+
+同一份文件里 `nolimit` 是 `"ok": true, "phase": "registered"` —— 说明不是权限、不是 registry 不可用，就是这份预设自己挂不起来。
+
+**根因**
+
+`presets/redteam/agent.cordis.yml` 里有两行用了裸包名：
+
+```yaml
+- id: persona
+  name: 'dsh-purge/redteam/persona'
+
+- id: redteam-tools
+  name: dsh-purge/redteam/tools
+```
+
+1.2.0 把 npm 包名从 `dsh-purge` 改成了 `dsh-purge-022`，`package.json` 的 `exports` key 也跟着变成 `./redteam/persona`、`./redteam/tools`。但这两行写死在 YAML 里、不在任何自动改写路径上，从 1.1.71-rc2.3 起就一直是 `dsh-purge/redteam/...`。
+
+实测：
+
+```
+✗ dsh-purge/redteam/persona → MODULE_NOT_FOUND
+✗ dsh-purge/redteam/tools   → MODULE_NOT_FOUND
+✓ dsh-purge-022/redteam/persona
+✓ dsh-purge-022/redteam/tools
+```
+
+Cordis 挂载预设时只要有一个插件名解析不了，整份预设就 `never started`，registry 把它标成 broken，下拉里自然不显示。
+
+**为什么自动修复没救回来**
+
+`lib/redteam/index.js` 里本来有个 `renderToolsPackage()` 负责改写旧包名，但它只认更早的独立包名 `dsh-redteam-mode/tools`：
+
+```js
+if (!text.includes('dsh-redteam-mode/tools')) {
+  return { text, changed: false };   // ← 裸 dsh-purge/ 直接从这里返回
+}
+```
+
+`dsh-purge/redteam/tools` 不含 `dsh-redteam-mode/tools`，于是被当成「已经改好了」原样放行。persona 那行更是从来没有任何代码碰过。
+
+**改法**
+
+1. `presets/redteam/agent.cordis.yml` 两行改成 `dsh-purge-022/...`。
+2. `renderToolsPackage()` 重写：不再写死目标名，改成从 `package.json` 读 `name`（新增 `selfPackageName()`），并且除了 `dsh-redteam-mode/` 之外，多认一条 `\bdsh-purge\/(redteam\/[a-z-]+)` → 当前包名。下次再改名时，磁盘上的老预设会被自动对齐。
+3. `lib/redteam/tools.js` 的报错文案里的包名同步改掉。
+
+**已在本机修复**
+
+不需要重装也能恢复：把这三处改动同步进 profile 后跑一次 `installPreset()`，它走的正是 `action: 'repaired'` 那条自愈分支：
+
+```
+预设里的插件包名已对齐到 dsh-purge-022
+{ "action": "repaired", "repaired": "tools-package", "skills": 23 }
+```
+
+再跑一次返回 `{"action":"kept"}`（幂等）。现在预设解析出 `plugins: 19`、残留旧名 0。
+
+**自检**
+
+`verify-rc217` 新增 4 项：预设里不能出现裸 `dsh-purge/redteam`、persona 行与 tools 行都必须等于 `package.json` 的 `name`、`renderToolsPackage` 必须从 package.json 读名字。
+
+从 542 项加到 **546 项**，全量 9 组 **766 项**全过。
+
+**生效**
+
+预设是宿主启动时注册的，改完要**完全退出客户端再重开**（托盘右键 → 退出 DeepSeek Harness），下拉里才会重新出现「红队模式」。
 ## v1.2.9 — 2026-11-25
 
 右下角那个悬浮的 `dsh-purge` 胶囊可以关掉了。

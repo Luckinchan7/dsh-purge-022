@@ -180,6 +180,19 @@ if (yml && fs.existsSync(yml)) {
   ok("保存后派发刷新事件", /dsh-purge:entries/.test(clientSrc));
 }
 
+// ── 5d. 预设里的插件名必须等于包名（改名漏改会让整份预设挂不上） ──
+{
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const presetSrc = fs.readFileSync(path.join(root, "presets", "redteam", "agent.cordis.yml"), "utf8");
+  const names = [...presetSrc.matchAll(/^\s*name:\s*(.+)$/gm)]
+    .map((m) => m[1].trim().replace(/^["']|["']$/g, ""))
+    .filter((n) => n && n !== "cordis:group" && n !== "cordis:isolate" && !n.startsWith("@deepseek-ai/") && !n.startsWith("."));
+  ok("预设里没有裸 dsh-purge/ 前缀", !/\bdsh-purge\/redteam/.test(presetSrc), names.join(", "));
+  ok("persona 行用当前包名", presetSrc.includes(`name: '${pkg.name}/redteam/persona'`), pkg.name);
+  ok("tools 行用当前包名", presetSrc.includes(`name: ${pkg.name}/redteam/tools`), pkg.name);
+  ok("renderToolsPackage 从 package.json 读名字", /function selfPackageName\(\)/.test(fs.readFileSync(path.join(root, "lib", "redteam", "index.js"), "utf8")));
+}
+
 // ── 6. 产物与合计 ────────────────────────────────────────────
 ok("ALL_PATCHES 含全部限额补丁", LIMIT_PATCHES.every((p) => core.ALL_PATCHES.some((q) => q.id === p.id)));
 ok("ALL_PATCHES id 总量", new Set(core.ALL_PATCHES.map((p) => p.id)).size === core.ALL_PATCHES.length, `共 ${core.ALL_PATCHES.length} 条`);

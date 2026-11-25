@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.9</strong></p>
+<p align="center"><strong>Version 1.2.10</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.10 修了什么](#1210-修了什么红队模式回到下拉里)
 - [1.2.9 修了什么](#129-修了什么右下角那个胶囊可以关掉)
 - [1.2.8 修了什么](#128-修了什么面板上每条补丁都说出自己是谁)
 - [1.2.7 修了什么](#127-修了什么补丁表扩到-131-条容量类上限全面抬升)
@@ -104,7 +105,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.9）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.10）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -116,6 +117,48 @@
 ---
 
 <a id="127-what"></a>
+
+## 1.2.10 修了什么：红队模式回到下拉里
+
+1.2.0 把包名从 `dsh-purge` 改成 `dsh-purge-022` 时，`presets/redteam/agent.cordis.yml` 里两行插件引用没跟着改，现在解析成 `MODULE_NOT_FOUND`：
+
+```yaml
+- id: persona
+  name: 'dsh-purge/redteam/persona'
+- id: redteam-tools
+  name: dsh-purge/redteam/tools
+```
+
+Cordis 只要有一个插件名解析不了，整份预设就 `never started`，registry 标成 broken，下拉里自然没有它。`$DSH_HOME/redteam/preset-declare.json` 里的证据：
+
+```json
+{ "ok": false, "phase": "registered-broken", "id": "redteam", "plugins": 19,
+  "broken": "persona (dsh-purge/redteam/persona): never started\nredteam-tools (dsh-purge/redteam/tools): never started" }
+```
+
+自愈逻辑本来是有的，但 `renderToolsPackage()` 只认更早的独立包名：
+
+```js
+if (!text.includes('dsh-redteam-mode/tools')) {
+  return { text, changed: false };   // ← 裸 dsh-purge/ 从这里直接返回
+}
+```
+
+现在改成从 `package.json` 读真名（新增 `selfPackageName()`），并多认一条 `\bdsh-purge\/(redteam\/[a-z-]+)` → 当前包名。下次再改名，磁盘上的老预设会被自动对齐。
+
+| 项 | 之前 | 现在 |
+|---|---|---|
+| 预设里的包名 | `dsh-purge/redteam/...` | `dsh-purge-022/redteam/...` |
+| 自愈认的形态 | 只有 `dsh-redteam-mode/` | 再加裸 `dsh-purge/` |
+| 目标名来源 | 写死在代码里 | 从 `package.json` 读 |
+
+本机已经修好：跑一次 `installPreset()` 返回 `{"action":"repaired","repaired":"tools-package"}`，再跑返回 `{"action":"kept"}`（幂等）。预设现在解析出 `plugins: 19`、残留旧名 0。
+
+预设是宿主启动时注册的，改完要**完全退出客户端再重开**，下拉里才会重新出现「红队模式」。
+
+详见 [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md)。
+
+<a id="129-what"></a>
 
 ## 1.2.9 修了什么：右下角那个胶囊可以关掉
 
@@ -542,7 +585,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -550,7 +593,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -562,7 +605,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.9  remoteVersion: 1.2.9
+ok:true  hasUpdate:false  localVersion: 1.2.10  remoteVersion: 1.2.10
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

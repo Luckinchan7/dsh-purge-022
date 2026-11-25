@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.9 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.10 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.9-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.9)
+[![version](https://img.shields.io/badge/version-1.2.10-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.10)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,13 +27,38 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.9）** |
+| **0.2.2-rc.5** | **本版（1.2.10）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
 <a id="127-what"></a>
+
+### 1.2.10 修了什么：红队模式回到下拉里
+
+1.2.0 把包名从 `dsh-purge` 改成 `dsh-purge-022` 时，`presets/redteam/agent.cordis.yml` 里两行插件引用没跟着改：
+
+```yaml
+- id: persona
+  name: 'dsh-purge/redteam/persona'
+- id: redteam-tools
+  name: dsh-purge/redteam/tools
+```
+
+`package.json` 的 exports key 是包名本身，所以这两行现在解析成 `MODULE_NOT_FOUND`。Cordis 只要有一个插件名解析不了就整份预设 `never started`，registry 标成 broken，下拉里就没有红队模式了。
+
+自愈逻辑本来是有的，但它只认更早的 `dsh-redteam-mode/tools`，裸 `dsh-purge/` 从那个分支直接返回。现在改成从 `package.json` 读真名，两种旧形态都认。
+
+| 项 | 之前 | 现在 |
+|---|---|---|
+| 预设里的包名 | `dsh-purge/redteam/...` | `dsh-purge-022/redteam/...` |
+| 自愈认的形态 | 只有 `dsh-redteam-mode/` | 再加裸 `dsh-purge/` |
+| 目标名来源 | 写死在代码里 | 从 `package.json` 读 |
+
+详见 [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md)。
+
+<a id="129-what"></a>
 
 ### 1.2.9 修了什么：右下角那个胶囊可以关掉
 
@@ -273,7 +298,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.9 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.10 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -316,7 +341,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.9  remoteVersion: 1.2.9  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.10  remoteVersion: 1.2.10  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -348,7 +373,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
 ```
 
 本地文件同理：
@@ -356,7 +381,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.9.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.10.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -424,6 +449,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md) —— 红队预设插件名对齐
 - [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md) —— 界面入口开关
 - [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) —— 补丁标签补齐与三层兜底
 - [1.2.7 发行说明](docs/releases/RELEASE-NOTES-1.2.7.md) —— #100–#140 容量补丁与 #19 失效根因
@@ -454,6 +480,23 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
 <a id="126-what"></a>
+
+### 1.2.10 fixes: the red-team preset is back in the dropdown
+
+When 1.2.0 renamed the package from `dsh-purge` to `dsh-purge-022`, two plugin references in `presets/redteam/agent.cordis.yml` were left behind:
+
+```yaml
+- id: persona
+  name: 'dsh-purge/redteam/persona'
+- id: redteam-tools
+  name: dsh-purge/redteam/tools
+```
+
+The `exports` keys in `package.json` are namespaced by the package name, so both now resolve to `MODULE_NOT_FOUND`. Cordis marks the whole preset `never started` on a single unresolvable plugin name, the registry flags it broken, and it disappears from the dropdown.
+
+The self-heal existed but only recognised the older `dsh-redteam-mode/tools` spelling. It now reads the real name from `package.json` and handles both stale forms.
+
+See [1.2.10 release notes](docs/releases/RELEASE-NOTES-1.2.10.md).
 
 ### 1.2.9 fixes: the bottom-right capsule can be turned off
 
@@ -542,7 +585,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.9 release notes](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.10 release notes](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -668,7 +711,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.9 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.10 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -705,7 +748,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.9   remoteVersion: 1.2.9   via: "git"
+localVersion: 1.2.10   remoteVersion: 1.2.10   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -730,7 +773,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.9/dsh-purge-022-1.2.9.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to
