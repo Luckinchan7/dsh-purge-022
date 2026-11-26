@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.10 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.11 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.10-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.10)
+[![version](https://img.shields.io/badge/version-1.2.11-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.11)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,13 +27,34 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.10）** |
+| **0.2.2-rc.5** | **本版（1.2.11）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
 <a id="127-what"></a>
+
+### 1.2.11 修了什么：插话能用了
+
+1.2.7 加的 #85 / #86 把插话改成了排队。#85 把 `prompt()` 里 `if (request.mode === "steer") agent.steer(...)` 整个换成 `agent.followup(message)`，#86 把队列的 `case "steer"` 也换成 `followup`。`followup()` 走 `next-turn`，所以点「插话发送」时代码仍然发 `mode="steer"`，后端却把它当排队消息扔进下一轮。
+
+现在改回带守卫的形态：回合在跑就真插到下一步，收尾了才退成排队。
+
+```js
+if (request.mode === "steer" && agent.status === "running") agent.steer(message);
+else agent.followup(message);
+```
+
+原来的竞态照样防住，插话也回来了。两条补丁都带迁移，老版本写进磁盘的「一律 followup」会被识别并改回来。
+
+顺带修了 #89：反问的等待上限原本被压到 1 秒，等于没人答得完，每次调用必然超时返回 pending。现在上限 90 秒，`-1` 也收成 90 秒。
+
+还有面板那个 chip：以前是往宿主的 React 子树里 `appendChild`，React 每次 commit 重建那块 DOM 时 diff 对不上，首页状态被回退 —— 这就是「选了工作区又弹回去」的疑似根因。现在容器挂 `document.body`，用 `position:fixed` 跟着锚点行。
+
+详见 [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md)。
+
+<a id="1210-what"></a>
 
 ### 1.2.10 修了什么：红队模式回到下拉里
 
@@ -298,7 +319,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.10 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.11 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -341,7 +362,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.10  remoteVersion: 1.2.10  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.11  remoteVersion: 1.2.11  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -373,7 +394,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
 ```
 
 本地文件同理：
@@ -381,7 +402,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.10.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.11.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -449,6 +470,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md) —— 插话恢复、反问上限、chip 不再插 React 树
 - [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md) —— 红队预设插件名对齐
 - [1.2.9 发行说明](docs/releases/RELEASE-NOTES-1.2.9.md) —— 界面入口开关
 - [1.2.8 发行说明](docs/releases/RELEASE-NOTES-1.2.8.md) —— 补丁标签补齐与三层兜底
@@ -480,6 +502,25 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
 <a id="126-what"></a>
+
+### 1.2.11 fixes: steering works again
+
+Patches #85 and #86 turned steering into queuing. #85 replaced `if (request.mode === "steer") agent.steer(...)` in `prompt()` with a bare `agent.followup(message)`, and #86 did the same to the queued `case "steer"`. `followup()` targets `next-turn`, so the client still sent `mode="steer"` while the backend quietly parked the message until the current turn ended.
+
+Both are back to a guarded shape: steer while the turn is running, queue once it has finished.
+
+```js
+if (request.mode === "steer" && agent.status === "running") agent.steer(message);
+else agent.followup(message);
+```
+
+The original race stays fixed and steering works. Both patches carry migrations, so the "always followup" form written by earlier versions is recognised and rewritten.
+
+Also: #89 capped `ask_user_question` at one second, which no human can answer — every call timed out into `pending`. The cap is now 90 seconds, with `-1` clamped too.
+
+And the panel chip: it used to `appendChild` into the host's React subtree, which broke React's diff and reset the hero area — the likely cause of "pick a workspace, then it bounces back". The container now lives on `document.body` with `position:fixed` tracking the anchor row.
+
+See [1.2.11 release notes](docs/releases/RELEASE-NOTES-1.2.11.md).
 
 ### 1.2.10 fixes: the red-team preset is back in the dropdown
 
@@ -585,7 +626,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.10 release notes](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.11 release notes](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -711,7 +752,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.10 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.11 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -748,7 +789,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.10   remoteVersion: 1.2.10   via: "git"
+localVersion: 1.2.11   remoteVersion: 1.2.11   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -773,7 +814,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

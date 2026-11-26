@@ -1,3 +1,85 @@
+## v1.2.11 — 2026-11-27
+
+修掉「不能插话」，以及一个把反问变成死路的默认值。
+
+**一、插话被改成了排队（用户报的问题）**
+
+DSH 原生的插话链路是：前端发 `mode="steer"` → `session.prompt()` → `agent.steer(message)` → 消息进 `inbox.next-step`。当前回合的下一步就能读到。
+
+1.2.7 加的 #85 和 #86 把这条路掐断了：
+
+| 补丁 | 位置 | 原来做什么 |
+|---|---|---|
+| #85 | `dsh-api-session-controller/lib/index.js` 的 `prompt()` | `if (request.mode === "steer") agent.steer(...)` → 只剩 `agent.followup(message)` |
+| #86 | 同文件的队列 `case "steer"` | `agent.steer(message)` → `agent.followup(message)` |
+
+`followup()` 走 `send(input, "next-turn", true)`，也就是**下一轮**。所以界面上点「插话发送」、按 Ctrl+Enter，前端照样发 `mode="steer"`，后端把它当排队消息扔进 `next-turn` —— 表现就是插话发不出去，要等这一轮跑完才轮到它。
+
+两条补丁的动机是消一个竞态：回合刚收尾那一瞬插话会落到 `next-step` 然后被丢弃。但代价是把功能整个废掉，不划算。
+
+现在改回带守卫的形态：
+
+```js
+// [dsh-purge-85] steer only while running; otherwise next-turn
+if (request.mode === "steer" && agent.status === "running") agent.steer(message);
+else agent.followup(message);
+```
+
+回合在跑就真插到下一步；已经收尾（`status !== "running"`）才退成排队 —— 竞态还在防，插话也还在。
+
+队列那条（#86）同理：`case "steer"` 里先看 `agent.status`，在跑才 `agent.steer`。
+
+两条都加了迁移：老版本写进磁盘的「一律 followup」形态会被识别并改回来，并把那个形态列进 `forbid`。所以升级后点一次「应用」就自动修好，不用手改宿主文件。
+
+**二、反问压到 1 秒等于没人答得完**
+
+#89 原本把 `ask_user_question` 的等待压到 1 秒：
+
+```js
+const timeout = 1; // [dsh-purge] ask_user_question never blocks a turn
+```
+
+1 秒内没人能看完问题点选项，所以每次调用必然超时、必然返回 `pending`。用户体感是「问了也不等我」，工具层面则是一堆无意义的 pending 记录。
+
+现在改成上限 90 秒，并且 `-1`（无限等）也收成 90 秒：
+
+```js
+const asked = validateTimeout(args.timeout ?? defaultTimeout);
+const timeout = asked === -1 ? 90 : Math.min(asked, 90);
+```
+
+90 秒够人看一眼回一句，又不至于把回合拖死；超时后照样返回 `pending` + `pendingNotice`，模型继续往下做，用户还能补答。
+
+**三、面板上的 chip 不再插进宿主的 React 树**
+
+这是「新建对话选了工作区又弹回去」的疑似根因。老的挂法是：
+
+```js
+const row = document.querySelector('[data-dsh-hero-workspace-row]') || ...;
+let el = row.querySelector(":scope > .dshp-hero-chip");
+if (!el) { el = document.createElement("div"); el.className = "dshp-hero-chip"; row.appendChild(el); }
+```
+
+往 React 管的子树里 appendChild，React 每次 commit 重建那块 DOM 时 diff 对不上，首页状态被回退成初始态。现象就是选完工作区、1 秒后又弹回「选择一个工作区开始」，而服务端其实已经把会话建出来了（那次排查里 `sessions/` 下有 13 个 350 字节的空会话，每批对应一次点击）。
+
+现在容器挂在 `document.body` 上，`position:fixed` 跟着锚点行的 `getBoundingClientRect()` 走：
+
+```js
+el.className = "dshp-float-chip " + className;
+document.body.appendChild(el);
+// place() 里算 top/left，滚动与缩放都重新算一次
+```
+
+宿主怎么重渲染都不碰我们的节点，`row.appendChild` 整个删掉了。
+
+**自检**
+
+`verify-rc217` 从 546 项加到 **573 项**，新增两组：
+
+- 「5e 插话链路不能被改成排队」17 项：#85/#86 不许把 `steer` 换成 `followup`、必须保留 `agent.status === "running"` 守卫、旧形态必须进 `forbid`、必须能被 pattern 认出来改回去；#89 不许写死 `timeout = 1`、必须处理 `-1`；面板标签不许再写「一律新 turn」「等 1 秒」。
+- 「5f 浮动挂件不能往宿主 React 子树插节点」8 项：`mountFloatChip` / `unmountFloatChip` 存在、`row.appendChild` 不存在、容器挂 `document.body`、CSS 是 `position:fixed`、滚动缩放有重排、两处挂点都走新函数、卸载时清节点。
+
+全量 9 组 **793 项**全过。
 ## v1.2.10 — 2026-11-25
 
 红队模式从下拉里消失了。根因是 1.2.0 改包名时漏掉的两行插件引用。

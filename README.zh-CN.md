@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.10</strong></p>
+<p align="center"><strong>Version 1.2.11</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.11 修了什么](#1211-修了什么插话能用了)
 - [1.2.10 修了什么](#1210-修了什么红队模式回到下拉里)
 - [1.2.9 修了什么](#129-修了什么右下角那个胶囊可以关掉)
 - [1.2.8 修了什么](#128-修了什么面板上每条补丁都说出自己是谁)
@@ -105,7 +106,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.10）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.11）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -117,6 +118,47 @@
 ---
 
 <a id="127-what"></a>
+
+## 1.2.11 修了什么：插话能用了
+
+1.2.7 加的 #85 / #86 把插话整条链路改成了排队。
+
+```js
+// #85 之前
+if (request.mode === "steer") agent.steer(message);
+else agent.followup(message);
+// #85 之后 —— steer 分支没了
+agent.followup(message);
+```
+
+`followup()` 走 `send(input, "next-turn", true)`，也就是下一轮。所以界面点「插话发送」、按 Ctrl+Enter，前端照样发 `mode="steer"`，后端把它当排队消息扔进 `next-turn` —— 表现就是插话发不出去，要等这一轮跑完才轮到它。
+
+两条补丁的动机是消一个竞态（回合刚收尾那一瞬插话落到 `next-step` 然后被丢弃），但代价是把功能整个废掉。
+
+现在改回带守卫的形态：
+
+```js
+// [dsh-purge-85] steer only while running; otherwise next-turn
+if (request.mode === "steer" && agent.status === "running") agent.steer(message);
+else agent.followup(message);
+```
+
+回合在跑就真插到下一步，已经收尾（`status !== "running"`）才退成排队。竞态还在防，插话也还在。队列那条（#86）同理。
+
+两条都带迁移：老版本写进磁盘的「一律 followup」会被 pattern 认出来改回去，那个形态还进了 `forbid`。升级后点一次「应用」就自动修好。
+
+**顺带两处**
+
+| 补丁 | 之前 | 现在 |
+|---|---|---|
+| #89 反问等待 | 写死 1 秒，必然超时 | 上限 90 秒，`-1` 也收成 90 |
+| 面板 chip | `row.appendChild` 进 React 子树 | 挂 `document.body`，`position:fixed` 跟随 |
+
+chip 那条是「新建对话选了工作区又弹回去」的疑似根因：往 React 管的子树里插节点，React 每次 commit 重建那块 DOM 时 diff 对不上，首页状态被回退。现在宿主管不到我们的节点。
+
+详见 [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md)。
+
+<a id="1210-what"></a>
 
 ## 1.2.10 修了什么：红队模式回到下拉里
 
@@ -585,7 +627,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -593,7 +635,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.10/dsh-purge-022-1.2.10.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -605,7 +647,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.10  remoteVersion: 1.2.10
+ok:true  hasUpdate:false  localVersion: 1.2.11  remoteVersion: 1.2.11
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

@@ -175,7 +175,7 @@ if (yml && fs.existsSync(yml)) {
   ok("PurgeLauncher 读 launcher 开关", /const entries = useEntries\(\);\s*\n\s*if \(entries\.launcher === false\) return null;/.test(clientSrc));
   ok("Hero mount 读 chips 开关", /const entries = useEntries\(\);[\s\S]{0,400}entries\.chips === false/.test(clientSrc));
   ok("TabRow mount 读 chips 开关", /function TabRowPurgeMount[\s\S]{0,400}entries\.chips === false/.test(clientSrc));
-  ok("关掉后会把已挂的节点摘掉", /live\.parentNode\.removeChild\(live\)/.test(clientSrc));
+  ok("关掉后会把已挂的节点摘掉", /unmountFloatChip\("dshp-hero-chip"\)/.test(clientSrc) && /unmountFloatChip\("dshp-tab-chip"\)/.test(clientSrc));
   ok("面板有 UiEntrySection", /function UiEntrySection/.test(clientSrc) && /h\(UiEntrySection, \{ onSaved: loadAll \}\)/.test(clientSrc));
   ok("保存后派发刷新事件", /dsh-purge:entries/.test(clientSrc));
 }
@@ -191,6 +191,60 @@ if (yml && fs.existsSync(yml)) {
   ok("persona 行用当前包名", presetSrc.includes(`name: '${pkg.name}/redteam/persona'`), pkg.name);
   ok("tools 行用当前包名", presetSrc.includes(`name: ${pkg.name}/redteam/tools`), pkg.name);
   ok("renderToolsPackage 从 package.json 读名字", /function selfPackageName\(\)/.test(fs.readFileSync(path.join(root, "lib", "redteam", "index.js"), "utf8")));
+}
+
+// ── 5e. 插话链路不能被改成排队 ────────────────────────────────
+{
+  const pick = (id) => core.ALL_PATCHES.find((p) => p.id === id);
+  const repsOf = (p) => (p.replacements || []).map((r) => String(r.replace || "")).join("\n");
+  const patOf = (p) => (p.replacements || []).map((r) => String(r.pattern || "")).join("\n");
+
+  const p85 = pick(85);
+  const p86 = pick(86);
+  const p89 = pick(89);
+
+  ok("#85 存在", Boolean(p85));
+  ok("#86 存在", Boolean(p86));
+  ok("#89 存在", Boolean(p89));
+
+  // 用户报「插话发不出去」的根因就是这两条把 steer 换成了 followup。
+  ok("#85 不把 prompt 的 steer 改成排队", !/agent\.followup\(message\); *\/\/ *\[dsh-purge-85\] user prompt always next-turn/.test(repsOf(p85)));
+  ok("#85 保留 steer 分支", /agent\.steer\(message\)/.test(repsOf(p85)));
+  ok("#85 带 running 守卫", /agent\.status === "running"/.test(repsOf(p85)));
+  ok("#85 把旧形态列进 forbid", (p85.forbid || []).some((f) => f.includes("user prompt always next-turn")));
+  ok("#85 能识别旧形态并改回来", /followup\(message\); *\/\/ *\[dsh-purge-85\] user prompt always next-turn/.test(patOf(p85)));
+
+  ok("#86 不把队列 steer 改成排队", !/agent\.followup\(message\); *\/\/ *\[dsh-purge-86\] queue steer/.test(repsOf(p86)));
+  ok("#86 保留 steer 分支", /agent\.steer\(message\)/.test(repsOf(p86)));
+  ok("#86 带 running 守卫", /agent\.status === "running"/.test(repsOf(p86)));
+  ok("#86 把旧形态列进 forbid", (p86.forbid || []).some((f) => f.includes("queue steer")));
+  ok("#86 仍保证 agent-loop 的 steer() 是 next-step", /this\.send\(input, "next-step", true\)/.test(repsOf(p86)));
+
+  // 反问不能压到 1 秒（1.2.10 之前那条等于没人答得完）。
+  ok("#89 不再把 timeout 写死成 1", !/const timeout = 1;/.test(repsOf(p89)));
+  ok("#89 有上限钳制", /Math\.min\(/.test(repsOf(p89)));
+  ok("#89 处理 -1 无限等", /=== -1/.test(repsOf(p89)));
+  ok("#89 把 1 秒形态列进 forbid", (p89.forbid || []).some((f) => f.includes("const timeout = 1;")));
+
+  // 标签也要跟着改，不能还写着「一律新 turn」。
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  ok("i18n 里 #85 不再写「一律新 turn」", !/"patch\.85": "[^"]*一律新 turn/.test(clientSrc));
+  ok("i18n 里 #89 不再写「等 1 秒」", !/"patch\.89": "[^"]*等 1 秒/.test(clientSrc));
+}
+
+// ── 5f. 浮动挂件不能往宿主的 React 子树里插节点 ──────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  ok("有 mountFloatChip", /function mountFloatChip\(/.test(clientSrc));
+  ok("有 unmountFloatChip", /function unmountFloatChip\(/.test(clientSrc));
+  // 关键：不能再对宿主行做 appendChild —— 那会让 React 的 diff 对不上，
+  // 用户看到的就是「选了工作区又弹回去」。
+  ok("不往宿主行 appendChild", !/row\.appendChild\(/.test(clientSrc));
+  ok("容器挂到 document.body", /document\.body\.appendChild\(el\)/.test(clientSrc));
+  ok("容器用 fixed 定位", /\.dshp-float-chip\{[^}]*position:fixed/.test(clientSrc));
+  ok("有滚动/缩放重排", /addEventListener\("scroll"/.test(clientSrc) && /addEventListener\("resize"/.test(clientSrc));
+  ok("两处都走 mountFloatChip", (clientSrc.match(/mountFloatChip\(row,/g) || []).length === 2);
+  ok("卸载时清掉浮动节点", (clientSrc.match(/unmountFloatChip\("dshp-/g) || []).length >= 4);
 }
 
 // ── 6. 产物与合计 ────────────────────────────────────────────

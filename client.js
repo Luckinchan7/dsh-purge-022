@@ -436,11 +436,11 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"patch.82": "主进程兜底 DSH_PROFILE=desktop",
 			"patch.83": "host 信号杀时不报错不弹对话框",
 			"patch.84": "host code=0 正常退出不报错 (消除 stopped 对话框)",
-			"patch.85": "UI 发消息一律新 turn（消 steer 竞态）",
-			"patch.86": "队列 steer 走 follow-up，公共 steer 不动",
+			"patch.85": "插话只在回合真在跑时生效，空闲退回排队",
+			"patch.86": "队列消息转插话：在跑就真插，否则排队",
 			"patch.87": "挂宿主用 LF 比对头尾，防 CRLF 误判重挂",
 			"patch.88": "头尾都在才算挂住，只剩一头就重新置顶",
-			"patch.89": "反问不卡回合：等 1 秒超时即继续",
+			"patch.89": "反问等待上限 90 秒，超时继续干活",
 			"patch.90": "沙箱策略文案去掉 DSH 品牌词",
 			"patch.91": "技能徽章描述去掉官方品牌",
 			"patch.92": "host 每次退出写 code/signal/stderr 日志",
@@ -847,11 +847,11 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"patch.82": "Fallback DSH_PROFILE=desktop in main process",
 			"patch.83": "Don't fail on signal kill (no crash dialog)",
 			"patch.84": "Don't fail on code=0 clean exit (no stopped dialog)",
-			"patch.85": "UI messages always start a new turn (kills steer race)",
-			"patch.86": "Queued steer uses follow-up; public steer unchanged",
+			"patch.85": "Steer only interrupts a running turn",
+			"patch.86": "Queued steer interrupts only while running",
 			"patch.87": "Compare host trace head/tail with LF, no CRLF mismatch",
 			"patch.88": "Only re-pin when both head and tail are present",
-			"patch.89": "Ask-user never blocks: 1s cap then continue",
+			"patch.89": "Ask-user waits at most 90s, then continues",
 			"patch.90": "Drop DSH branding from file-policy text",
 			"patch.91": "Neutralize skill-badge description branding",
 			"patch.92": "Persist host exit code/signal/stderr to log",
@@ -1156,7 +1156,8 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 .dshp-hbtn:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 12%,transparent);color:var(--dsw-alias-label-primary,currentColor)}
 .dshp-hbtn.on{border-color:var(--dsw-alias-brand-primary,#6dbf8c);color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent)}
 .dshp-live-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dsw-alias-brand-primary,#6dbf8c);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 28%,transparent)}
-.dshp-hero-chip{display:inline-flex;align-items:center;margin-left:6px;flex:0 0 auto}
+.dshp-float-chip{position:fixed;z-index:10038;transform:translateY(-50%);display:inline-flex;align-items:center;pointer-events:auto}
+.dshp-hero-chip{display:inline-flex;align-items:center;flex:0 0 auto}
 .dshp-hero-chip-btn{appearance:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 50%,transparent);border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 10%,transparent);color:var(--dsw-alias-label-primary,currentColor);cursor:pointer;font:12.5px/1 inherit;white-space:nowrap}
 .dshp-hero-chip-btn:hover{border-color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent)}
 .dshp-hero-chip-btn.on{border-color:var(--dsw-alias-brand-primary,#6dbf8c);color:var(--dsw-alias-brand-primary,#6dbf8c);background:color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 18%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary,#6dbf8c) 32%,transparent)}
@@ -8882,6 +8883,60 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 			}, t("dock.newSession"));
 		}
 
+		/*
+		 * 浮动挂件：以前是往宿主的 React 子树里 appendChild 一个容器，再 createPortal 进去。
+		 * React 每次 commit 都会重建那块 DOM，我们插的节点让它的 diff 对不上 ——
+		 * 用户看到的就是「选了工作区，1 秒后又弹回去」。现在容器挂在 document.body 上，
+		 * 用 fixed 定位贴着锚点行。宿主怎么重渲染都不影响。
+		 */
+		const floatChips = new Map();
+		function mountFloatChip(anchor, className, testId) {
+			let el = floatChips.get(className) || null;
+			if (el && !el.isConnected) el = null;
+			if (!el) {
+				el = document.createElement("div");
+				el.className = "dshp-float-chip " + className;
+				el.setAttribute("data-testid", testId);
+				document.body.appendChild(el);
+			}
+			floatChips.set(className, el);
+			const place = () => {
+				try {
+					const r = anchor.getBoundingClientRect();
+					if (!r || (r.width === 0 && r.height === 0)) {
+						el.style.visibility = "hidden";
+						return;
+					}
+					el.style.visibility = "visible";
+					const top = Math.round(r.top + r.height / 2);
+					let left = Math.round(r.right + 8);
+					const w = el.offsetWidth || 0;
+					if (w && left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - w);
+					el.style.top = top + "px";
+					el.style.left = left + "px";
+				} catch { /* ignore */ }
+			};
+			/* 滚动和缩放不会触发 MutationObserver，得自己跟一次。 */
+			if (el.__dshpPlace !== place) {
+				el.__dshpPlace = place;
+				if (!el.__dshpBound) {
+					el.__dshpBound = true;
+					const relayout = () => { if (typeof el.__dshpPlace === "function") el.__dshpPlace(); };
+					window.addEventListener("scroll", relayout, true);
+					window.addEventListener("resize", relayout);
+				}
+			}
+			place();
+			return { el, place };
+		}
+		function unmountFloatChip(className) {
+			const el = floatChips.get(className);
+			if (!el) return;
+			floatChips.delete(className);
+			el.__dshpPlace = null;
+			try { if (el.parentNode) el.parentNode.removeChild(el); } catch { /* ignore */ }
+		}
+
 		/** 首页：模式旁挂「dsh-purge」→ 打开插件。红队模式走模式下拉（registry 声明）。 */
 		function HeroNewSessionMount() {
 			const t = useT();
@@ -8895,11 +8950,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					if (dead || typeof document === "undefined") return;
 					/* 关掉 chips 时把已经挂上去的节点撤掉，别留一个空壳占位 */
 					if (entries.chips === false) {
-						try {
-							const live = document.querySelector(":scope > .dshp-hero-chip, .dshp-hero-chip")
-								|| document.querySelector(".dshp-hero-chip");
-							if (live && live.parentNode) live.parentNode.removeChild(live);
-						} catch { /* ignore */ }
+						unmountFloatChip("dshp-hero-chip");
 						setHost((prev) => (prev ? null : prev));
 						return;
 					}
@@ -8918,13 +8969,9 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						return;
 					}
 					warnedMiss = false;
-					let el = row.querySelector(":scope > .dshp-hero-chip");
-					if (!el) {
-						el = document.createElement("div");
-						el.className = "dshp-hero-chip";
-						el.setAttribute("data-testid", "dsh-purge-hero-chip");
-						row.appendChild(el);
-					}
+					const mounted = mountFloatChip(row, "dshp-hero-chip", "dsh-purge-hero-chip");
+					mounted.place();
+					const el = mounted.el;
 					setHost((prev) => (prev === el ? prev : el));
 				};
 				ensure();
@@ -8937,6 +8984,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					dead = true;
 					if (obs) obs.disconnect();
 					clearInterval(iv);
+					unmountFloatChip("dshp-hero-chip");
 				};
 			}, [entries.chips]);
 			if (!host) return null;
@@ -8968,10 +9016,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				const ensure = () => {
 					if (dead || typeof document === "undefined") return;
 					if (entries.chips === false) {
-						try {
-							const live = document.querySelector(".dshp-tab-chip");
-							if (live && live.parentNode) live.parentNode.removeChild(live);
-						} catch { /* ignore */ }
+						unmountFloatChip("dshp-tab-chip");
 						setHost((prev) => (prev ? null : prev));
 						return;
 					}
@@ -8990,13 +9035,9 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						return;
 					}
 					warnedMiss = false;
-					let el = row.querySelector(":scope > .dshp-tab-chip");
-					if (!el) {
-						el = document.createElement("div");
-						el.className = "dshp-tab-chip";
-						el.setAttribute("data-testid", "dsh-purge-tab-chip");
-						row.appendChild(el);
-					}
+					const mounted = mountFloatChip(row, "dshp-tab-chip", "dsh-purge-tab-chip");
+					mounted.place();
+					const el = mounted.el;
 					setHost((prev) => (prev === el ? prev : el));
 				};
 				ensure();
@@ -9009,6 +9050,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					dead = true;
 					if (obs) obs.disconnect();
 					clearInterval(iv);
+					unmountFloatChip("dshp-tab-chip");
 				};
 			}, [entries.chips]);
 			if (!host) return null;
