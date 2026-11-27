@@ -247,6 +247,17 @@ if (yml && fs.existsSync(yml)) {
   ok("卸载时清掉浮动节点", (clientSrc.match(/unmountFloatChip\("dshp-/g) || []).length >= 4);
 }
 
+// ── 5g. 关掉悬浮按钮之后还得有别的入口 ──────────────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  ok("有 PurgeSettingsSection 组件", /function PurgeSettingsSection\(/.test(clientSrc));
+  ok("注册到 settings.section", /slots\.inject\("settings\.section"/.test(clientSrc));
+  ok("settings.section 带 label", /name: "settings\.section"[\s\S]{0,200}label:/.test(clientSrc));
+  ok("settings.section 用 i18n 标签", /label: \(\) => t\("settings\.nav"\)/.test(clientSrc));
+  ok("i18n 两个块都有 settings.nav", (clientSrc.match(/"settings\.nav":/g) || []).length === 2);
+  ok("settings 段复用 SettingsRoot", /function PurgeSettingsSection[\s\S]{0,400}h\(SettingsRoot, \{ t \}\)/.test(clientSrc));
+}
+
 // ── 6. 产物与合计 ────────────────────────────────────────────
 ok("ALL_PATCHES 含全部限额补丁", LIMIT_PATCHES.every((p) => core.ALL_PATCHES.some((q) => q.id === p.id)));
 ok("ALL_PATCHES id 总量", new Set(core.ALL_PATCHES.map((p) => p.id)).size === core.ALL_PATCHES.length, `共 ${core.ALL_PATCHES.length} 条`);

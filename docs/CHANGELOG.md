@@ -1,3 +1,52 @@
+## v1.2.12 — 2026-11-27
+
+面板没入口了 —— 因为入口开关把它关掉之后，没有任何别的路能点回来。
+
+**问题**
+
+1.2.9 加了 `tuning.launcher`（右下角悬浮按钮）和 `tuning.chips`（页内小挂件）两个开关，理由是那两个东西挡视线。但面板只挂在悬浮按钮上：
+
+```js
+function PurgeLauncher() {
+  const entries = useEntries();
+  if (entries.launcher === false) return null;   // ← 面板入口跟着一起没了
+  ...
+}
+```
+
+`tuning.json` 里 `launcher: false` 之后，唯一的入口消失。要改回来只能手改 JSON 文件 —— 而用户并不知道那个文件在哪。这不叫「可关」，叫「一关就回不来」。
+
+**改法**
+
+把面板接进设置页：`settings.section` 注册一段 `dsh-purge`，复用同一个 `SettingsRoot` 组件。
+
+```js
+ctx.slots.inject("settings.section", () => ctx.slots.register({
+  name: "settings.section",
+  id: "dsh-purge",
+  order: 60,
+  label: () => t("settings.nav"),
+  locale: NS,
+}, (p) => h(PurgeSettingsSection, { t: p && typeof p.t === "function" ? p.t : t })));
+```
+
+`label` 走 i18n（`settings.nav` = `dsh-purge`），所以语言切换也跟着变。老宿主没有这个 slot 时 `catch` 兜住，只留悬浮按钮 —— 不会因为注册失败把整个插件带崩。
+
+配套：`C:\Users\devin\.dsh\dsh-purge\tuning.json` 的 `launcher` 已改回 `true`，你现在两个入口都有。
+
+**关掉悬浮按钮不再等于关掉面板**
+
+| 入口 | 关掉 `launcher` 之后 |
+|---|---|
+| 右下角悬浮按钮 | 消失（由开关控制） |
+| 设置 → dsh-purge | **仍在** |
+| 首页模式旁的 chip | 由 `chips` 控制，与面板入口无关 |
+
+**自检**
+
+`verify-rc217` 从 573 项加到 **579 项**，新增「5g 关掉悬浮按钮之后还得有别的入口」6 项：组件存在、注册到 `settings.section`、带 `label`、`label` 走 i18n、两个语言块都有 `settings.nav`、设置段复用 `SettingsRoot`。
+
+全量 9 组 **799 项**全过。
 ## v1.2.11 — 2026-11-27
 
 修掉「不能插话」，以及一个把反问变成死路的默认值。

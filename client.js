@@ -130,6 +130,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"dock.clean": "清洗",
 			"dock.drill": "演练台",
 			"dock.toggle": "dsh-purge",
+			"settings.nav": "dsh-purge",
 			"dock.newSession": "dsh-purge",
 			"dock.inSession": "dsh-purge",
 			"dock.redteam": "红队模式",
@@ -541,6 +542,7 @@ window.__ModuleLoader__.load({ id: "dsh-purge-022", factory: (require) => {
 			"dock.clean": "Clean",
 			"dock.drill": "Drill",
 			"dock.toggle": "dsh-purge",
+			"settings.nav": "dsh-purge",
 			"dock.newSession": "dsh-purge",
 			"dock.inSession": "dsh-purge",
 			"dock.redteam": "Red team",
@@ -1102,6 +1104,8 @@ body[data-ds-dark-theme] .dshp-restart-card .dshp-btn-primary,body[data-ds-dark-
 .dshp-dock-tab.on{color:var(--dsw-alias-label-primary,var(--dshp-ink,#f2f2f2));font-weight:600;border-bottom-color:var(--dsw-alias-brand-primary,#6dbf8c);background:transparent}
 .dshp-dock-body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:transparent;border-radius:0 0 12px 12px}
 .dshp-dock-body .dshp-root{max-width:none;height:100%;flex:1;min-height:0;overflow:auto;background:transparent!important;--dshp-bg:transparent;--dshp-paper:color-mix(in srgb,var(--dshp-ink) 7%,transparent);--dshp-fill:color-mix(in srgb,var(--dshp-ink) 6%,transparent);--dshp-line:color-mix(in srgb,var(--dshp-ink) 20%,transparent);--dshp-accent-soft:color-mix(in srgb,var(--dshp-accent) 22%,transparent)}
+/* 设置页里那一段：不撑满整屏，跟着设置页的滚动走 */
+.dshp-settings-section{max-width:none;padding:0;gap:16px}
 .dshp-dock-body .dshp-panel,.dshp-dock-body .dshp-metric,.dshp-dock-body .dshp-group,.dshp-dock-body .dshp-editor,.dshp-dock-body .dshp-active,.dshp-dock-body .dshp-ask,.dshp-dock-body .dshp-create,.dshp-dock-body .dshp-rulelist,.dshp-dock-body .dshp-table,.dshp-dock-body .dshp-ruleitem,.dshp-dock-body .dshp-cwd-list,.dshp-dock-body .dshp-cwd-item{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#f7f4ee) 74%,transparent)!important;border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#6d8f78) 32%,transparent)!important;color:var(--dshp-ink)!important;box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 32%,transparent);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3)}
 .dshp-dock-body .dshp-field,.dshp-dock-body .dshp-area{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1,#fff) 88%,transparent)!important;color:var(--dshp-ink)!important;border-color:color-mix(in srgb,var(--dsw-alias-border-l1,#8a8478) 72%,transparent)!important}
 .dshp-dock-body select.dshp-field,.dshp-dock-body .dshp-field.dshp-ver{background:var(--dsw-alias-bg-layer-1,#fff)!important;color:var(--dshp-ink)!important;color-scheme:inherit}
@@ -3121,6 +3125,21 @@ body:not([data-ds-dark-theme]) .dshp-auth-ops button.primary{background:var(--ds
 				h(PurgifySection, null),
 				h(RulesSection, null),
 				h(SkillsSection, null),
+			);
+		}
+
+		/**
+		 * 设置 → dsh-purge。
+		 *
+		 * 右下角那个悬浮按钮可以被关掉（tuning.launcher），关掉之后面板就没有入口了 ——
+		 * 用户把 launcher 设成 false 再想改回来，得去翻 JSON 文件。这一段把它接回设置页，
+		 * 关不关悬浮按钮都能进来。
+		 */
+		function PurgeSettingsSection(props) {
+			const t = typeof props?.t === "function" ? props.t : ((key) => key);
+			return h("div", { className: "dshp-root dshp-settings-section" },
+				h("style", null, PURGE_CSS),
+				h(SettingsRoot, { t }),
 			);
 		}
 
@@ -9103,6 +9122,16 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				id: "dsh-purge-dock",
 				order: 50,
 			}, () => h(react.Fragment, null, h(WelcomeNotice), h(PurgeLauncher), h(PurgeDock), h(HeroNewSessionMount), h(TabRowPurgeMount), h(EnvAdaptSendGate))));
+			/* 设置页里也要有入口：悬浮按钮可以关，关了不该等于没处点。 */
+			try {
+				ctx.slots.inject("settings.section", () => ctx.slots.register({
+					name: "settings.section",
+					id: "dsh-purge",
+					order: 60,
+					label: () => t("settings.nav"),
+					locale: NS,
+				}, (p) => h(PurgeSettingsSection, { t: p && typeof p.t === "function" ? p.t : t })));
+			} catch { /* 老宿主没有这个 slot 就只留悬浮按钮 */ }
 			try {
 				if (typeof ctx.inject === "function") {
 					ctx.inject(["sessions", "uiWorkspace", "workspaces", "conversation"], (host) => installRewindUi(host));

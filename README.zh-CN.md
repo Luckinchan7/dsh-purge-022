@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.11</strong></p>
+<p align="center"><strong>Version 1.2.12</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.12 修了什么](#1212-修了什么关掉悬浮按钮还有设置页)
 - [1.2.11 修了什么](#1211-修了什么插话能用了)
 - [1.2.10 修了什么](#1210-修了什么红队模式回到下拉里)
 - [1.2.9 修了什么](#129-修了什么右下角那个胶囊可以关掉)
@@ -106,7 +107,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.11）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.12）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -118,6 +119,46 @@
 ---
 
 <a id="127-what"></a>
+
+## 1.2.12 修了什么：关掉悬浮按钮还有设置页
+
+1.2.9 加了 `tuning.launcher`（右下角悬浮按钮）和 `tuning.chips`（页内小挂件）两个开关，理由是那两个东西挡视线。但面板只挂在悬浮按钮上：
+
+```js
+function PurgeLauncher() {
+  const entries = useEntries();
+  if (entries.launcher === false) return null;   // ← 面板入口跟着一起没了
+  return h("button", { className: "dshp-launch", onClick: () => toggleDock() }, t("dock.newSession"));
+}
+```
+
+`tuning.json` 里 `"launcher": false` 之后，唯一的入口消失，要改回来只能手改那个 JSON —— 而用户并不知道它在哪。这不叫「可关」，叫「一关就回不来」。
+
+现在面板也注册进宿主的设置页：
+
+```js
+ctx.slots.inject("settings.section", () => ctx.slots.register({
+  name: "settings.section",
+  id: "dsh-purge",
+  order: 60,
+  label: () => t("settings.nav"),
+  locale: NS,
+}, (p) => h(PurgeSettingsSection, { t: p && typeof p.t === "function" ? p.t : t })));
+```
+
+组件复用同一个 `SettingsRoot`，所以设置页里那段和原来面板里的内容完全一样。
+
+| 入口 | 关掉 `launcher` 之后 |
+|---|---|
+| 右下角悬浮按钮 | 消失（由开关控制） |
+| 设置 → dsh-purge | **仍在** |
+| 首页模式旁的 chip | 由 `chips` 控制，与面板入口无关 |
+
+老宿主没有这个 slot 时外面包了 `try/catch`，只是少一个入口，不会把插件带崩。
+
+详见 [1.2.12 发行说明](docs/releases/RELEASE-NOTES-1.2.12.md)。
+
+<a id="1211-what"></a>
 
 ## 1.2.11 修了什么：插话能用了
 
@@ -627,7 +668,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.12/dsh-purge-022-1.2.12.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -635,7 +676,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.11/dsh-purge-022-1.2.11.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.12/dsh-purge-022-1.2.12.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -647,7 +688,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.11  remoteVersion: 1.2.11
+ok:true  hasUpdate:false  localVersion: 1.2.12  remoteVersion: 1.2.12
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 
