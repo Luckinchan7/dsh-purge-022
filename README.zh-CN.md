@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.12</strong></p>
+<p align="center"><strong>Version 1.2.13</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.13 修了什么](#1213-修了什么挂件不再压住)
 - [1.2.12 修了什么](#1212-修了什么关掉悬浮按钮还有设置页)
 - [1.2.11 修了什么](#1211-修了什么插话能用了)
 - [1.2.10 修了什么](#1210-修了什么红队模式回到下拉里)
@@ -107,7 +108,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.12）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.13）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -119,6 +120,51 @@
 ---
 
 <a id="127-what"></a>
+
+## 1.2.13 修了什么：挂件不再压住「…」
+
+1.2.11 把页内挂件改成「挂 body + fixed 跟随锚点」，定位算的是锚点矩形右边 +8px：
+
+```js
+const r = anchor.getBoundingClientRect();
+let left = Math.round(r.right + 8);
+```
+
+但锚点取的是 `[data-conversation-tabs]` 那一行 —— 它是 `width:100%` 的 flex 容器，「对话 / 轨迹 / 画廊 / 上下文」四个标签只占左边一小段，右边全空。`r.right` 是整行的右边，而「…」按钮正好排在那附近，两个就叠上了。
+
+**改法**
+
+1. 锚点换成行内的 `[role="tablist"]`：
+
+```js
+const anchorEl = row ? (row.querySelector("[role='tablist']") || row) : null;
+```
+
+2. `mountFloatChip` 新增 `opts.afterSelector`，从锚点父容器里找「…」按钮（它是锚点的兄弟，不在锚点里面），确认同一行后取两者右边缘的较大值：
+
+```js
+const scope = anchor.parentElement || document;
+const after = scope.querySelector(opts.afterSelector) || document.querySelector(opts.afterSelector);
+if (after && after !== anchor) {
+  const ar = after.getBoundingClientRect();
+  if ((ar.width > 0 || ar.height > 0) && Math.abs(ar.top - r.top) < r.height + 8) {
+    baseRight = Math.max(baseRight, ar.right);
+  }
+}
+```
+
+3. 挤不下视口就隐藏，不再往左退 —— 往左退正好压住「…」：
+
+```js
+if (w && left + w > window.innerWidth - 8) {
+  el.style.visibility = "hidden";
+  return;
+}
+```
+
+详见 [1.2.13 发行说明](docs/releases/RELEASE-NOTES-1.2.13.md)。
+
+<a id="1212-what"></a>
 
 ## 1.2.12 修了什么：关掉悬浮按钮还有设置页
 
@@ -668,7 +714,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.12/dsh-purge-022-1.2.12.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.13/dsh-purge-022-1.2.13.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -676,7 +722,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.12/dsh-purge-022-1.2.12.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.13/dsh-purge-022-1.2.13.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -688,7 +734,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.12  remoteVersion: 1.2.12
+ok:true  hasUpdate:false  localVersion: 1.2.13  remoteVersion: 1.2.13
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

@@ -1,3 +1,59 @@
+## v1.2.13 — 2026-11-27
+
+页内那个 `dsh-purge` 挂件压住了标签栏末尾的「…」按钮。
+
+**问题**
+
+1.2.11 把挂件从「插进宿主 DOM」改成「挂 body + fixed 跟随」，定位算的是锚点矩形右边 +8px：
+
+```js
+const r = anchor.getBoundingClientRect();
+let left = Math.round(r.right + 8);
+```
+
+但锚点取的是 `[data-conversation-tabs]` 那一行 —— 它是 `width:100%` 的 flex 容器，「对话 / 轨迹 / 画廊 / 上下文」四个标签只占左边一小段，右边全空。`r.right` 是**整行的右边**，而「…」按钮正好排在那附近，两个就叠上了。
+
+**改法**
+
+三个地方：
+
+1. **锚点换成内容区**：优先用行内的 `[role="tablist"]`，它的宽度跟着标签走：
+
+```js
+const anchorEl = row ? (row.querySelector("[role='tablist']") || row) : null;
+```
+
+2. **量出「…」按钮的右边缘**：`mountFloatChip` 新增 `opts.afterSelector`，从锚点的父容器里找那个按钮（它是锚点的兄弟，不在锚点里面），确认同一行后取 `max(锚点右, 按钮右)`：
+
+```js
+const scope = anchor.parentElement || document;
+const after = scope.querySelector(opts.afterSelector) || document.querySelector(opts.afterSelector);
+if (after && after !== anchor) {
+  const ar = after.getBoundingClientRect();
+  if ((ar.width > 0 || ar.height > 0) && Math.abs(ar.top - r.top) < r.height + 8) {
+    baseRight = Math.max(baseRight, ar.right);
+  }
+}
+```
+
+`Math.abs(ar.top - r.top) < r.height + 8` 是行内校验 —— 上下差太多说明抓到的是别的区域的菜单按钮，不认。
+
+3. **挤不下就藏起来**：原来右边界超出视口时会往左退，但往左退正好压住「…」。现在改成直接隐藏：
+
+```js
+if (w && left + w > window.innerWidth - 8) {
+  el.style.visibility = "hidden";
+  return;
+}
+```
+
+少一个挂件，但不会挡住别人的按钮。
+
+**自检**
+
+`verify-rc217` 从 579 项加到 **586 项**，新增「5h 浮动挂件不能压住行尾的『…』按钮」7 项。
+
+全量 9 组 **806 项**全过。
 ## v1.2.12 — 2026-11-27
 
 面板没入口了 —— 因为入口开关把它关掉之后，没有任何别的路能点回来。

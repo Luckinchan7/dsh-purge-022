@@ -8909,7 +8909,12 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 		 * 用 fixed 定位贴着锚点行。宿主怎么重渲染都不影响。
 		 */
 		const floatChips = new Map();
-		function mountFloatChip(anchor, className, testId) {
+		/*
+		 * opts.afterSelector：这一行里还有个「…」按钮，紧跟在我们想贴的那段后面。
+		 * 直接按 right+8 放会正好压住它（用户看到的就是 dsh-purge 和 … 叠在一起），
+		 * 所以先量出「…」的右边缘，从它后面开始摆。
+		 */
+		function mountFloatChip(anchor, className, testId, opts) {
 			let el = floatChips.get(className) || null;
 			if (el && !el.isConnected) el = null;
 			if (!el) {
@@ -8927,10 +8932,27 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						return;
 					}
 					el.style.visibility = "visible";
+					let baseRight = r.right;
+					if (opts && opts.afterSelector) {
+						/* 「…」按钮是锚点的兄弟节点，先看父容器，再退回全文档 */
+						const scope = anchor.parentElement || document;
+						const after = scope.querySelector(opts.afterSelector) || document.querySelector(opts.afterSelector);
+						if (after && after !== anchor) {
+							const ar = after.getBoundingClientRect();
+							/* 只认同一行的兄弟：上下差太多说明是别的区域的按钮 */
+							if ((ar.width > 0 || ar.height > 0) && Math.abs(ar.top - r.top) < r.height + 8) {
+								baseRight = Math.max(baseRight, ar.right);
+							}
+						}
+					}
 					const top = Math.round(r.top + r.height / 2);
-					let left = Math.round(r.right + 8);
+					const left = Math.round(baseRight + 8);
 					const w = el.offsetWidth || 0;
-					if (w && left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - w);
+					/* 挤不下就藏起来：往左退会压住「…」按钮，那正是要避免的 */
+					if (w && left + w > window.innerWidth - 8) {
+						el.style.visibility = "hidden";
+						return;
+					}
 					el.style.top = top + "px";
 					el.style.left = left + "px";
 				} catch { /* ignore */ }
@@ -9045,7 +9067,11 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						document.querySelector("[data-conversation-tabrow]") ||
 						document.querySelector("[role='tablist'][aria-label*='对话' i]") ||
 						document.querySelector("[class*='conversation' i][class*='tab' i][class*='row' i]");
-					if (!row) {
+					/* 贴的锚点优先用 tablist 本身（宽度跟着标签走），行是 100% 宽、右侧全是空白 */
+					const anchorEl = row
+						? (row.querySelector("[role='tablist']") || row)
+						: null;
+					if (!anchorEl) {
 						if (!warnedMiss) {
 							warnedMiss = true;
 							try { console.warn("[dsh-purge] TabRowPurgeMount: tab row anchor missing"); } catch { /* ignore */ }
@@ -9054,7 +9080,10 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						return;
 					}
 					warnedMiss = false;
-					const mounted = mountFloatChip(row, "dshp-tab-chip", "dsh-purge-tab-chip");
+					const mounted = mountFloatChip(anchorEl, "dshp-tab-chip", "dsh-purge-tab-chip", {
+						/* 这一行末尾那个「…」按钮：排在它右边，别压上去 */
+						afterSelector: "[aria-haspopup='menu']",
+					});
 					mounted.place();
 					const el = mounted.el;
 					setHost((prev) => (prev === el ? prev : el));

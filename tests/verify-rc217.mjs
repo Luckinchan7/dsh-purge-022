@@ -243,7 +243,7 @@ if (yml && fs.existsSync(yml)) {
   ok("容器挂到 document.body", /document\.body\.appendChild\(el\)/.test(clientSrc));
   ok("容器用 fixed 定位", /\.dshp-float-chip\{[^}]*position:fixed/.test(clientSrc));
   ok("有滚动/缩放重排", /addEventListener\("scroll"/.test(clientSrc) && /addEventListener\("resize"/.test(clientSrc));
-  ok("两处都走 mountFloatChip", (clientSrc.match(/mountFloatChip\(row,/g) || []).length === 2);
+  ok("两处都走 mountFloatChip", (clientSrc.match(/mountFloatChip\(/g) || []).length >= 3 && (clientSrc.match(/mountFloatChip\((row|anchorEl),/g) || []).length === 2);
   ok("卸载时清掉浮动节点", (clientSrc.match(/unmountFloatChip\("dshp-/g) || []).length >= 4);
 }
 
@@ -256,6 +256,18 @@ if (yml && fs.existsSync(yml)) {
   ok("settings.section 用 i18n 标签", /label: \(\) => t\("settings\.nav"\)/.test(clientSrc));
   ok("i18n 两个块都有 settings.nav", (clientSrc.match(/"settings\.nav":/g) || []).length === 2);
   ok("settings 段复用 SettingsRoot", /function PurgeSettingsSection[\s\S]{0,400}h\(SettingsRoot, \{ t \}\)/.test(clientSrc));
+}
+
+// ── 5h. 浮动挂件不能压住行尾的「…」按钮 ────────────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  ok("mountFloatChip 支持 afterSelector", /function mountFloatChip\(anchor, className, testId, opts\)/.test(clientSrc));
+  ok("afterSelector 取父容器里的兄弟", /anchor\.parentElement \|\| document/.test(clientSrc));
+  ok("afterSelector 校验同一行", /Math\.abs\(ar\.top - r\.top\)/.test(clientSrc));
+  ok("基准取 max(锚点右, 按钮右)", /baseRight = Math\.max\(baseRight, ar\.right\)/.test(clientSrc));
+  ok("挤不下时隐藏而不是左移", /left \+ w > window\.innerWidth - 8[\s\S]{0,80}visibility = "hidden"/.test(clientSrc));
+  ok("TabRow 传 afterSelector", /afterSelector: "\[aria-haspopup='menu'\]"/.test(clientSrc));
+  ok("TabRow 锚点优先 tablist", /row\.querySelector\("\[role='tablist'\]"\) \|\| row/.test(clientSrc));
 }
 
 // ── 6. 产物与合计 ────────────────────────────────────────────
