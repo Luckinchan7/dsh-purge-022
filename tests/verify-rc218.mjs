@@ -98,10 +98,14 @@ function buildSession(id = "s1") {
   const plan = rewind.planRewind(s.snapshotEvents(), { surfaceNodes: [...s.surface.nodes] });
   let forkAt = null;
   const children = new Map();
+  const archivedSet = new Set();
   const ctx = {
     sessions: { get: (id) => (id === "fork-src" ? s : children.get(id)) },
     get(name) { return this[name]; },
     agents: { get: () => null },
+    workspaceController: {
+      async archiveSession(id) { archivedSet.add(id); return { archivedSessionIds: [...archivedSet] }; },
+    },
     sessionController: {
       cancel() {},
       async fork({ sessionId, atSeq }) {
@@ -124,6 +128,8 @@ function buildSession(id = "s1") {
   ok("3f 父会话一行没动", s.deriveMessages().length === 7, `实际 ${s.deriveMessages().length}`);
   ok("3g 子会话没有最后一轮的回复", !child.deriveMessages().some((m) => m.id === "a3"));
   ok("3h 回退文本是最后一轮的提示", r.text === "第三句", `实际 ${r.text}`);
+  ok("3i fork 成功后父会话进归档", r.archived === true);
+  ok("3j 归档集合里有父会话", archivedSet.has("fork-src") === true);
 }
 
 // ── 4. 宿主没有 fork 时退回原地折叠 ───────────────────────────
@@ -151,6 +157,10 @@ function buildSession(id = "s1") {
   ok("5d fork 优先于原地折叠", src.indexOf("await forkRewoundSession(") < src.indexOf("clearModelHistory(session, plan.text, plan.fromSeq)"));
   ok("5e 结果里带 forked 标记", /forked:\s*true/.test(src) && /forked:\s*false/.test(src));
   ok("5f 挑边界时优先 turn/end", /event\?\.type === "turn\/end"/.test(src));
+  ok("5i 存在 retireParentSession", /async function retireParentSession\(/.test(src));
+  ok("5j fork 成功后归档父会话", src.indexOf("await retireParentSession(ctx, sessionId)") > src.indexOf("if (childId)"));
+  ok("5k 归档带 stopActivity", /archiveSession\(sessionId, \{ stopActivity: true \}\)/.test(src));
+  ok("5l 结果里的 archived 反映归档结果", /archived: parentArchived/.test(src));
   const client = fs.readFileSync(path.join(root, "client.js"), "utf8");
   ok("5g 客户端换会话后刷新列表", /sessions\.refresh/.test(client));
 }

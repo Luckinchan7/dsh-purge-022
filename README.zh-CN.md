@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.15</strong></p>
+<p align="center"><strong>Version 1.2.16</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.16 修了什么](#1216-修了什么回退不再往会话列表里加东西)
 - [1.2.15 修了什么](#1215-修了什么shim-的-cmd-红点是误报)
 - [1.2.14 修了什么](#1214-修了什么回退终于能用了)
 - [1.2.13 修了什么](#1213-修了什么挂件不再压住)
@@ -110,7 +111,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.15）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.16）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -121,9 +122,28 @@
 
 ---
 
+<a id="1216-what"></a>
+
+## 1.2.16 修了什么：回退不再往会话列表里加东西
+
+1.2.14 把回退改成 `fork` 一个截断的子会话（客户端不认 `surfaceOp: replace`）。但 `fork` 必然新建会话，父会话默认还留在列表里，每回退一次净增一条。
+
+改法：fork 成功后调 `workspaceController.archiveSession(sessionId, { stopActivity: true })` 把父会话收进归档 —— 历史不删、随时能反归档找回，只是不再占列表。
+
+`stopActivity: true` 必须带：不带的话宿主会先查 `workspace/session-activity`，那一轮还在跑就抛 `WorkspaceActiveSessionError`。归档失败不抛，回退本身已经成功了。
+
+```
+回退1: sid c1, archived true, 归档集合 [p1]
+回退2: sid c2, archived true, 归档集合 [p1, c1]
+会话总数 3，已归档 2 → 列表净增 0
+```
+
+详见 [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md)。
+
 <a id="1215-what"></a>
 
 ## 1.2.15 修了什么：shim 的 cmd 红点是误报
+
 
 面板 shim 那一格里 `cmd` 一直是红点，但那个文件没问题 —— 是读数读错了。
 
@@ -761,7 +781,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -769,7 +789,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -781,7 +801,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.15  remoteVersion: 1.2.15
+ok:true  hasUpdate:false  localVersion: 1.2.16  remoteVersion: 1.2.16
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

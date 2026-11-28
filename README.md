@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.15 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.16 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.15-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.15)
+[![version](https://img.shields.io/badge/version-1.2.16-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.16)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.15 发行说明](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md) · [1.2.15](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,15 +27,36 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.15）** |
+| **0.2.2-rc.5** | **本版（1.2.16）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
+<a id="1216-what"></a>
+
+### 1.2.16 修了什么：回退不再往会话列表里加东西
+
+1.2.14 把回退改成在边界处 `fork` 一个截断的子会话 —— 因为客户端不认 `surfaceOp: replace`，原地打标记只会清掉模型历史、屏幕上一条不少。但 `fork` 必然新建会话，父会话默认还留在列表里，**每回退一次列表净增一条**。
+
+改法：fork 成功后调宿主的 `workspaceController.archiveSession(sessionId, { stopActivity: true })` 把父会话收进归档。历史不删、随时能反归档找回，只是不再占列表。
+
+`stopActivity: true` 是必须的：不带这一项，宿主会先查 `workspace/session-activity`，只要那一轮还在跑就抛 `WorkspaceActiveSessionError`。归档失败不抛 —— 回退本身已经成功，归档只是收拾现场。
+
+两次连续回退实测：
+
+```
+回退1: sid c1, archived true, 归档集合 [p1]
+回退2: sid c2, archived true, 归档集合 [p1, c1]
+会话总数 3，已归档 2 → 列表净增 0
+```
+
+详见 [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md)。
+
 <a id="1215-what"></a>
 
 ### 1.2.15 修了什么：shim 的 `cmd` 红点是误报
+
 
 面板 shim 那一格里 `cmd` 一直是红点，但那个文件没问题 —— 是读数读错了。
 
@@ -417,7 +438,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.15 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.16 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -460,7 +481,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.15  remoteVersion: 1.2.15  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.16  remoteVersion: 1.2.16  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -492,7 +513,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
 ```
 
 本地文件同理：
@@ -500,7 +521,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.15.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.16.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -568,7 +589,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
-- [1.2.15 发行说明](docs/releases/RELEASE-NOTES-1.2.15.md) —— 挂件不压「…」
+- [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md) —— 挂件不压「…」
 - [1.2.12 发行说明](docs/releases/RELEASE-NOTES-1.2.12.md) —— 设置页里的面板入口
 - [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md) —— 插话恢复、反问上限、chip 不再插 React 树
 - [1.2.10 发行说明](docs/releases/RELEASE-NOTES-1.2.10.md) —— 红队预设插件名对齐
@@ -603,7 +624,7 @@ The compat layer is **append-only**: new anchors go to the end of the existing `
 
 <a id="126-what"></a>
 
-### 1.2.15 fixes: the chip no longer covers the "…" button
+### 1.2.16 fixes: the chip no longer covers the "…" button
 
 1.2.11 moved the in-page chip to a body-mounted element positioned at `anchor.right + 8`. The anchor was the `[data-conversation-tabs]` row, which is `width:100%` — its right edge lands on top of the trailing "…" menu button.
 
@@ -613,7 +634,7 @@ Three changes:
 2. `mountFloatChip` takes `opts.afterSelector` and measures that button's right edge from the anchor's parent, then uses `max(anchor.right, button.right)`. A row check (`Math.abs(ar.top - r.top) < r.height + 8`) rejects menu buttons from other regions.
 3. If it does not fit the viewport, hide instead of sliding left — sliding left is exactly what covered the button.
 
-See [1.2.15 release notes](docs/releases/RELEASE-NOTES-1.2.15.md).
+See [1.2.16 release notes](docs/releases/RELEASE-NOTES-1.2.16.md).
 
 ### 1.2.12 fixes: settings page keeps the panel reachable
 
@@ -760,7 +781,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.15 release notes](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.16 release notes](docs/releases/RELEASE-NOTES-1.2.16.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -886,7 +907,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.15 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.16 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -923,7 +944,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.15   remoteVersion: 1.2.15   via: "git"
+localVersion: 1.2.16   remoteVersion: 1.2.16   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -948,7 +969,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

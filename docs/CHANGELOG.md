@@ -1,3 +1,31 @@
+## v1.2.16 — 2026-11-28
+
+回退一次，会话列表就多一条。
+
+**根因**
+
+1.2.14 把回退改成在边界处 `fork` 出一个截断的子会话（因为客户端不认 `surfaceOp: replace`）。但 `fork` 必然新建会话，父会话默认还留在列表里 —— 每回退一次，列表净增一条。
+
+**改法**
+
+fork 成功后调宿主的 `workspaceController.archiveSession(sessionId, { stopActivity: true })` 把父会话收进归档。历史不删、随时能反归档找回，只是不再占列表。
+
+`stopActivity: true` 是必须的：不带这一项，宿主会先查 `workspace/session-activity`，只要那一轮还在跑就抛 `WorkspaceActiveSessionError`。
+
+归档失败不抛 —— 回退本身已经成功，归档只是收拾现场。
+
+**实测**（两次连续回退）：
+
+```
+回退1: sid c1, archived true, 归档集合 [p1]
+回退2: sid c2, archived true, 归档集合 [p1, c1]
+会话总数 3，已归档 2 → 列表净增 0
+```
+
+`tests/verify-rc218.mjs` 新增 4 条源码断言与 2 条行为断言（父会话必须进归档、`archived` 必须反映结果、`stopActivity` 必须在）。
+
+全量自检 10 组 **840 项 0 失败**。
+
 ## v1.2.15 — 2026-11-28
 
 面板 shim 那三个圆点里 `cmd` 一直是红的，但它其实没问题 —— 是读数读错了。
