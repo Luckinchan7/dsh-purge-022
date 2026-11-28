@@ -1,3 +1,58 @@
+## v1.2.14 — 2026-11-28
+
+回退（Undo）点了没反应：菜单正常、接口返回 200、界面提示成功，历史一个字没变。查下来是两个叠加的缺陷。
+
+**缺陷一：挑错了要撤的那句**
+
+`planRewind` 只在原始事件日志里找「最近一条人类提示」：
+
+```js
+let candidates = ordered.filter((row) => isRoundPromptEvent(row.event));
+const last = candidates.at(-1);
+const fromSeq = bounds.startSeq >= 0 ? bounds.startSeq : last.seq;
+```
+
+回退过一次之后，上一轮那句提示**还在日志里**，但已经被更早那条 `rewind-` 空标记从画面上盖掉了。于是它又被选为目标；`cutSurfaceNodes` 从它的 seq 往后找第一个「还在画面上」的节点，找到的正是那条空标记本身 ——
+
+```
+新 plan 之前实测：fromSeq 815 → 只切掉 1 个节点（1335:user/message，内容为空）
+```
+
+真正的对话一个节点都没动，函数却回报 `cleared: true`。
+
+改法：`planRewind(events, { surfaceNodes })` 拿当前画面节点集合过滤候选；`doRewindOneSession` 与 `applyRewind` 的 round 分支都传 `liveSurfaceNodes(ctx, sessionId)`。某一轮整轮都被盖掉时不再一律报失败，退到「画面上最后一个可见句子」，报错文案也换成了能看懂的那句。
+
+修后同一份日志：
+
+```
+旧：fromSeq 815 → 切 1 个节点
+新：fromSeq 598 → 切 66 个节点（598:user/message … 809:assistant/message）
+```
+
+**缺陷二：清掉的是模型历史，不是屏幕**
+
+就算切对了，客户端也不认 `surfaceOp: { op: "replace" }`：
+
+- `dsh-client-ui-chat/lib/client.js` 的 `messageDefinition.match` 只接 `isAppendSurfaceEvent(event)`，replace 事件返回 `null`；
+- `dsh-client-ui-conversation/lib/client.js` 的 `ConversationNodeAssembler` 里 `shadowed` 出现 0 次，只有 `inspectSystemPrompt` 会处理 replace 范围。
+
+所以原地打标记的结果是：**模型看不见那几轮了，界面上一条不少**。
+
+改法：优先走宿主自己的 `sessionController.fork({ sessionId, atSeq })`，在边界处切出一个真截断的子会话 —— 这是两端都实现了的路径（`buildForkSeed` → `Session` 重建），父会话原样保留。边界尽量停在 `turn/end` 上，避免子会话带着半个 `tool/call` 起步。宿主没有 `fork` 时退回原地折叠，至少清掉模型历史。
+
+真机日志实测（`session-fbf9232f`，1336 事件 / 174 个可见节点）：
+
+```
+fork 边界 seq 593（turn/end） 父 derived 172 子 derived 107
+```
+
+**顺带**
+
+- 菜单文案改成「从上一轮结束处开一个新会话（原来那条留着）」，与行为一致。
+- 新增 `tests/verify-rc218.mjs`（23 项）：抓的就是这两个缺陷 —— 老逻辑必须复现「只切一条标记」、新逻辑必须真的切掉对话、fork 边界必须是 `turn/end`、父会话必须一行不动、无 `fork` 时兜底仍然生效。
+
+全量自检 10 组 **843 项 0 失败**（新增 rc218 的 23 项）。
+
 ## v1.2.13 — 2026-11-27
 
 页内那个 `dsh-purge` 挂件压住了标签栏末尾的「…」按钮。

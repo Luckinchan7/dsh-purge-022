@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.13</strong></p>
+<p align="center"><strong>Version 1.2.14</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.14 修了什么](#1214-修了什么回退终于能用了)
 - [1.2.13 修了什么](#1213-修了什么挂件不再压住)
 - [1.2.12 修了什么](#1212-修了什么关掉悬浮按钮还有设置页)
 - [1.2.11 修了什么](#1211-修了什么插话能用了)
@@ -108,7 +109,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.13）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.14）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -119,9 +120,33 @@
 
 ---
 
-<a id="127-what"></a>
+<a id="1214-what"></a>
+
+## 1.2.14 修了什么：回退终于能用了
+
+点「回退」有菜单、有请求、有成功提示，历史一个字不变。两个叠加的缺陷：
+
+**一、挑错了要撤的那句。** `planRewind` 只在原始事件日志里找最近一条人类提示。回退过一次之后，上一轮那句提示还在日志里、但已被更早的 `rewind-` 空标记从画面上盖掉，于是它又被选为目标；`cutSurfaceNodes` 从它的 seq 往后找到的第一个可见节点正是那条空标记 ——
+
+```
+旧：fromSeq 815 → 切 1 个节点（content 为空）
+新：fromSeq 598 → 切 66 个节点（598:user/message … 809:assistant/message）
+```
+
+改成 `planRewind(events, { surfaceNodes })`，用当前画面节点集合过滤候选。
+
+**二、清掉的是模型历史，不是屏幕。** 客户端不认 `surfaceOp: { op: "replace" }`（`dsh-client-ui-chat` 的 `messageDefinition.match` 只接 `isAppendSurfaceEvent`；`dsh-client-ui-conversation` 的 assembler 里 `shadowed` 出现 0 次）。改成优先 `fork` 一个截断的子会话，父会话保留，两端看到同一份历史。
+
+```
+真机：fork 边界 593（turn/end）  父 derived 172  子 derived 107
+```
+
+详见 [1.2.14 发行说明](docs/releases/RELEASE-NOTES-1.2.14.md)。
+
+<a id="1213-what"></a>
 
 ## 1.2.13 修了什么：挂件不再压住「…」
+
 
 1.2.11 把页内挂件改成「挂 body + fixed 跟随锚点」，定位算的是锚点矩形右边 +8px：
 
@@ -714,7 +739,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.13/dsh-purge-022-1.2.13.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.14/dsh-purge-022-1.2.14.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -722,7 +747,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.13/dsh-purge-022-1.2.13.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.14/dsh-purge-022-1.2.14.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -734,7 +759,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.13  remoteVersion: 1.2.13
+ok:true  hasUpdate:false  localVersion: 1.2.14  remoteVersion: 1.2.14
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 
