@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.17 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.18 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.17-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.17)
+[![version](https://img.shields.io/badge/version-1.2.18-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.18)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.17 发行说明](docs/releases/RELEASE-NOTES-1.2.17.md) · [1.2.15](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.18 发行说明](docs/releases/RELEASE-NOTES-1.2.18.md) · [1.2.15](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,31 +27,36 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.17）** |
+| **0.2.2-rc.5** | **本版（1.2.18）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
 
-<a id="1216-what"></a>
+<a id="1218-what"></a>
 
-### 1.2.17 修了什么：回退不再往会话列表里加东西
+### 1.2.18 修了什么：回退不再新建会话
 
-1.2.14 把回退改成在边界处 `fork` 一个截断的子会话 —— 因为客户端不认 `surfaceOp: replace`，原地打标记只会清掉模型历史、屏幕上一条不少。但 `fork` 必然新建会话，父会话默认还留在列表里，**每回退一次列表净增一条**。
+回退本来不需要新会话。**最初版本**（1.1.71-rc2.3）的做法是留在当前会话，打一条 `surfaceOp: { op: "replace", startSeq, endSeq }` 标记——宿主用它折叠**模型看到的**历史，屏幕上的气泡靠两条前端补丁藏掉：
 
-改法：fork 成功后调宿主的 `workspaceController.archiveSession(sessionId, { stopActivity: true })` 把父会话收进归档。历史不删、随时能反归档找回，只是不再占列表。
+- **#56** `REWIND_HIDE_CUT_ONLY` —— 按 `surfaceOp` 范围隐藏气泡
+- **#77** `REWIND_DROP_SENT_ON_APPEND` —— 回退标记到达时重建窗口
 
-`stopActivity: true` 是必须的：不带这一项，宿主会先查 `workspace/session-activity`，只要那一轮还在跑就抛 `WorkspaceActiveSessionError`。归档失败不抛 —— 回退本身已经成功，归档只是收拾现场。
+0.2.3 把 `dsh-client-ui-conversation/lib/client.js` 发成了 685 KB / 28 行的压缩包，`rewindVisibleEntries`、`isRewindMarker`、带缩进的 `append(record) {` 全部消失，这两条在 `lib/compat-0.2.3.js:86` 被 `RETIRED_023_IDS = new Set([56, 77])` 摘掉。
 
-两次连续回退实测：
+于是模型历史清了、屏幕一条不少 →「点回退什么都没发生」→ 1.2.14 改用 fork → 每退一次多一个会话 → 1.2.16/1.2.17 再去归档父会话，一直没弄对。
 
-```
-回退1: sid c1, archived true, 归档集合 [p1]
-回退2: sid c2, archived true, 归档集合 [p1, c1]
-会话总数 3，已归档 2 → 列表净增 0
-```
+1.2.18 不再绕着走，**按压缩后的短名重新锚定**，把第一套做法接回来：
 
-详见 [1.2.17 发行说明](docs/releases/RELEASE-NOTES-1.2.17.md)。
+| 补丁 | 锚点 | 作用 |
+|---|---|---|
+| **#141** `REWIND_ASSEMBLER_REMEMBER` | `var ConversationNodeAssembler=class{eventDefinitions;viewDefinitions;` | 装配器加 `rewoundSeqs` 与 `rewindsOf(entries)`，扫出 `rewind-` 开头的 replace 标记覆盖的序号 |
+| **#142** `REWIND_ASSEMBLER_FILTER_WINDOW` | `this.hasMore=hasMore;const sorted=[...entries].sort(` | 整窗重建走 `rewindsOf` |
+| **#143** `REWIND_ASSEMBLER_APPEND_REBUILD` | `append(record){...if(this.revised.size>0)this.revised.clear();` | 标记到达即 `replaceWindow(...)`，不等下次重建 |
+
+`doRewindOneSession` 的顺序也调回来：先 `clearModelHistory`，`cleared` 就直接返回（`forked: false` / `archived: false`）；折叠不成才 fork 兜底。
+
+详见 [1.2.18 发行说明](docs/releases/RELEASE-NOTES-1.2.18.md)。
 
 <a id="1215-what"></a>
 
@@ -438,7 +443,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.17 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.18 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -481,7 +486,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.17  remoteVersion: 1.2.17  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.18  remoteVersion: 1.2.18  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -513,7 +518,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.17/dsh-purge-022-1.2.17.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
 ```
 
 本地文件同理：
@@ -521,7 +526,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.17.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.18.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -589,7 +594,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
-- [1.2.17 发行说明](docs/releases/RELEASE-NOTES-1.2.17.md) —— 回退不再往会话列表里加东西
+- [1.2.18 发行说明](docs/releases/RELEASE-NOTES-1.2.18.md) —— 回退不再往会话列表里加东西
 - [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md) —— 第一次尝试归档（签名调错，未生效）
 - [1.2.12 发行说明](docs/releases/RELEASE-NOTES-1.2.12.md) —— 设置页里的面板入口
 - [1.2.11 发行说明](docs/releases/RELEASE-NOTES-1.2.11.md) —— 插话恢复、反问上限、chip 不再插 React 树
@@ -623,38 +628,30 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
 
-<a id="1217-what"></a>
+<a id="1218-what"></a>
 
-### 1.2.17 fixes: rewinding a turn no longer adds a session
+### 1.2.18 fixes: rewinding a turn no longer adds a session
 
-1.2.14 made rewind fork a truncated child session — the client only honours `surfaceOp: "append"`, so an in-place `replace` marker cleared the model history while leaving every bubble on screen.
+Rewind never needed a new session. The **original version** (1.1.71-rc2.3) stayed in the current session and appended one `surfaceOp: { op: "replace", startSeq, endSeq }` marker. The host folds the **model-visible** history from it; the bubbles themselves disappeared thanks to two client patches:
 
-`fork` always creates a new session, and the parent stayed in the list. Every rewind added one.
+- **#56** `REWIND_HIDE_CUT_ONLY` — hides bubbles by `surfaceOp` range
+- **#77** `REWIND_DROP_SENT_ON_APPEND` — rebuilds the window when the marker lands
 
-1.2.16 tried to archive the parent but **called the wrong signature** every time:
+0.2.3 shipped `dsh-client-ui-conversation/lib/client.js` as a 685 KB / 28-line bundle. `rewindVisibleEntries`, `isRewindMarker` and the indented `append(record) {` were all gone, so both patches were dropped by `RETIRED_023_IDS = new Set([56, 77])` in `lib/compat-0.2.3.js:86`.
 
-```js
-// dsh-workspace/lib/types/index.js — positional
-archiveSession(sessionId, options = {})
+Result: model history cleared, screen unchanged — "rewind does nothing". 1.2.14 switched to `fork`, which always creates a session. 1.2.16/1.2.17 then tried to archive the parent and never got it right.
 
-// dsh-api-workspace-controller/lib/index.js — request object
-async archiveSession(request)
-```
+1.2.18 stops working around it and **re-anchors on the mangled names**:
 
-It called the controller positionally, so `request.sessionId` was `undefined`, the registry refused with `WorkspaceUnknownSessionError`, and `catch { return false }` swallowed it. Rewind still reported success; the parent never moved.
+| Patch | Anchor | Effect |
+|---|---|---|
+| **#141** `REWIND_ASSEMBLER_REMEMBER` | `var ConversationNodeAssembler=class{eventDefinitions;viewDefinitions;` | adds `rewoundSeqs` and `rewindsOf(entries)`, collecting the seq ranges every `rewind-` replace marker covers |
+| **#142** `REWIND_ASSEMBLER_FILTER_WINDOW` | `this.hasMore=hasMore;const sorted=[...entries].sort(` | window rebuild goes through `rewindsOf` |
+| **#143** `REWIND_ASSEMBLER_APPEND_REBUILD` | `append(record){...if(this.revised.size>0)this.revised.clear();` | the marker rebuilds the window immediately |
 
-1.2.17 stops trusting "the call did not throw". It tries each shape and **reads `archivedSessionIds` back** after every attempt:
+`doRewindOneSession` runs in the original order again: `clearModelHistory` first, return `forked: false` / `archived: false` when it succeeds, and only fall back to `fork` when it cannot.
 
-```js
-const isArchived = () => {
-  const list = service(ctx, "workspaceRegistry")?.archivedSessionIds;
-  return Array.isArray(list) && list.includes(sessionId);
-};
-```
-
-Order: `registry(id, opts)` → `registry({sessionId, opts})` → `controller({sessionId, opts})` → `controller(id, opts)`.
-
-See [1.2.17 release notes](docs/releases/RELEASE-NOTES-1.2.17.md).
+See [the 1.2.18 release notes](docs/releases/RELEASE-NOTES-1.2.18.md).
 
 <a id="1213-what"></a>
 
@@ -815,7 +812,7 @@ If you already run 1.2.x, do nothing. `readRepoOverride()` reads
 `$DSH_HOME/dsh-purge/repo.json`; when that file is absent the new constant applies.
 Clear the Update source field and save to drop a manually pinned old value.
 
-See [1.2.17 release notes](docs/releases/RELEASE-NOTES-1.2.17.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
+See [1.2.18 release notes](docs/releases/RELEASE-NOTES-1.2.18.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md).
 
 ---
 
@@ -941,7 +938,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.17 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.18 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -978,7 +975,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.17   remoteVersion: 1.2.17   via: "git"
+localVersion: 1.2.18   remoteVersion: 1.2.18   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -1003,7 +1000,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.17/dsh-purge-022-1.2.17.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

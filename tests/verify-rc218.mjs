@@ -92,29 +92,57 @@ function buildSession(id = "s1") {
   ok("2a 空会话回退失败而不是抛错", plan.ok === false && typeof plan.error === "string");
 }
 
-// ── 3. fork 边界停在 turn/end ────────────────────────────────
+// ── 3. 原地折叠优先：不留新会话 ──────────────────────────────
+{
+  const { s } = buildSession("inplace-src");
+  let forkCalled = false;
+  const ctx = {
+    sessions: { get: (id) => (id === "inplace-src" ? s : undefined) },
+    get(name) { return this[name]; },
+    agents: { get: () => null },
+    workspaceRegistry: { get archivedSessionIds() { return []; }, async archiveSession() { throw new Error("should not archive"); } },
+    sessionController: {
+      cancel() {},
+      async fork() { forkCalled = true; return { sessionId: "should-not-exist" }; },
+    },
+  };
+  rewind.wrapSessionDeriveMessages(s);
+  const before = s.deriveMessages().length;
+  const r = await rewind.applyRewind(ctx, "inplace-src", "once");
+  ok("3a 原地折叠成功", r.ok === true && r.forked === false, `实际 ${JSON.stringify(r).slice(0, 160)}`);
+  ok("3b 会话号不变（不新建会话）", r.sessionId === "inplace-src" && r.parentId === "inplace-src");
+  ok("3c 没有调用 fork", forkCalled === false);
+  ok("3d 模型历史真的缩短了", s.deriveMessages().length < before, `${before} -> ${s.deriveMessages().length}`);
+  ok("3e 最后一轮回复不在模型历史里", !s.deriveMessages().some((m) => m.id === "a3"));
+  ok("3f 回退文本是最后一轮的提示", r.text === "第三句", `实际 ${r.text}`);
+  ok("3g 没进归档（会话还在用）", r.archived === false);
+  const nodes = [...s.surface.nodes];
+  const goneSeqs = s.snapshotEvents().filter((e) => e.type === "user/message" && e.surfaceOp && e.surfaceOp !== "append").flatMap((e) => [e.surfaceOp.startSeq, e.surfaceOp.endSeq]);
+  ok("3h 画面上最后一轮已被 replace 标记盖掉", goneSeqs.length >= 2 && nodes.every((q) => q < goneSeqs[0] || q > goneSeqs[1]), `同屏 ${JSON.stringify(nodes)} 盖掉 [${goneSeqs}]`);
+}
+
+// ── 4. 原地折叠失败时才退到 fork ─────────────────────────────
 {
   const { s } = buildSession("fork-src");
-  const plan = rewind.planRewind(s.snapshotEvents(), { surfaceNodes: [...s.surface.nodes] });
+  /* 把 append 拆掉，原地折叠会抛错 → 走 fork 兜底 */
+  const noAppend = Object.create(s);
+  noAppend.append = undefined;
   let forkAt = null;
   const children = new Map();
   const archivedSet = new Set();
   const ctx = {
-    sessions: { get: (id) => (id === "fork-src" ? s : children.get(id)) },
+    sessions: { get: (id) => (id === "fork-src" ? noAppend : children.get(id)) },
     get(name) { return this[name]; },
     agents: { get: () => null },
     workspaceRegistry: {
-      /* 真实注册表是位置参数：archiveSession(sessionId, options)，
-         并且真的会把 id 加进 archivedSessionIds —— 插件靠回读这个数组确认成功。 */
       get archivedSessionIds() { return [...archivedSet]; },
-      async archiveSession(id, opts) {
+      async archiveSession(id) {
         if (typeof id !== "string" || !id) throw new Error("WorkspaceUnknownSessionError");
         archivedSet.add(id);
         return undefined;
       },
     },
     workspaceController: {
-      /* 真实 controller 收请求对象，收位置参数会静默失败。 */
       async archiveSession(request) {
         if (!request || typeof request.sessionId !== "string") throw new Error("WorkspaceUnknownSessionError");
         archivedSet.add(request.sessionId);
@@ -134,33 +162,16 @@ function buildSession(id = "s1") {
     },
   };
   const r = await rewind.applyRewind(ctx, "fork-src", "once");
-  ok("3a 走了 fork 分支", r.ok === true && r.forked === true, `实际 ${JSON.stringify(r).slice(0, 120)}`);
-  ok("3b fork 返回子会话 id", typeof r.sessionId === "string" && r.sessionId !== "fork-src");
-  ok("3c parentId 仍是原会话", r.parentId === "fork-src");
-  ok("3d 边界落在 turn/end 上", forkAt !== null && s.log[forkAt]?.type === "turn/end", `seq ${forkAt} 类型 ${s.log[forkAt]?.type}`);
+  ok("4a 原地折叠失败时走 fork", r.ok === true && r.forked === true, `实际 ${JSON.stringify(r).slice(0, 160)}`);
+  ok("4b fork 返回子会话 id", typeof r.sessionId === "string" && r.sessionId !== "fork-src");
+  ok("4c parentId 仍是原会话", r.parentId === "fork-src");
+  ok("4d 边界落在 turn/end 上", forkAt !== null && s.log[forkAt]?.type === "turn/end", `seq ${forkAt} 类型 ${s.log[forkAt]?.type}`);
   const child = children.get(r.sessionId);
-  ok("3e 子会话比父会话短", child.deriveMessages().length < s.deriveMessages().length, `子 ${child?.deriveMessages().length} 父 ${s.deriveMessages().length}`);
-  ok("3f 父会话一行没动", s.deriveMessages().length === 7, `实际 ${s.deriveMessages().length}`);
-  ok("3g 子会话没有最后一轮的回复", !child.deriveMessages().some((m) => m.id === "a3"));
-  ok("3h 回退文本是最后一轮的提示", r.text === "第三句", `实际 ${r.text}`);
-  ok("3i fork 成功后父会话进归档", r.archived === true);
-  ok("3j 归档集合里有父会话", archivedSet.has("fork-src") === true);
-}
-
-// ── 4. 宿主没有 fork 时退回原地折叠 ───────────────────────────
-{
-  const { s } = buildSession("no-fork");
-  const ctx = {
-    sessions: { get: (id) => (id === "no-fork" ? s : undefined) },
-    get(name) { return this[name]; },
-    agents: { get: () => null },
-    sessionController: { cancel() {} },
-  };
-  rewind.wrapSessionDeriveMessages(s);
-  const before = s.deriveMessages().length;
-  const r = await rewind.applyRewind(ctx, "no-fork", "once");
-  ok("4a 无 fork 时仍成功（原地折叠兜底）", r.ok === true && r.forked === false, `实际 ${JSON.stringify(r).slice(0, 120)}`);
-  ok("4b 原地折叠确实缩短了模型历史", s.deriveMessages().length < before, `${before} -> ${s.deriveMessages().length}`);
+  ok("4e 子会话比父会话短", child.deriveMessages().length < s.deriveMessages().length, `子 ${child?.deriveMessages().length} 父 ${s.deriveMessages().length}`);
+  ok("4f 父会话一行没动", s.deriveMessages().length === 7, `实际 ${s.deriveMessages().length}`);
+  ok("4g 子会话没有最后一轮的回复", !child.deriveMessages().some((m) => m.id === "a3"));
+  ok("4h fork 成功后父会话进归档", r.archived === true);
+  ok("4i 归档集合里有父会话", archivedSet.has("fork-src") === true);
 }
 
 // ── 5. 源码层不变量 ──────────────────────────────────────────
@@ -169,11 +180,14 @@ function buildSession(id = "s1") {
   ok("5a planRewind 接受 surfaceNodes", /planRewind\(events,\s*options\s*=\s*\{\}\)/.test(src));
   ok("5b 存在 visibleSeqSet 过滤", /function visibleSeqSet\(/.test(src));
   ok("5c 存在 forkRewoundSession", /async function forkRewoundSession\(/.test(src));
-  ok("5d fork 优先于原地折叠", src.indexOf("await forkRewoundSession(") < src.indexOf("clearModelHistory(session, plan.text, plan.fromSeq)"));
+  ok("5d 原地折叠优先于 fork", src.indexOf("clearModelHistory(session, plan.text, plan.fromSeq)") < src.indexOf("await forkRewoundSession("));
   ok("5e 结果里带 forked 标记", /forked:\s*true/.test(src) && /forked:\s*false/.test(src));
   ok("5f 挑边界时优先 turn/end", /event\?\.type === "turn\/end"/.test(src));
   ok("5i 存在 retireParentSession", /async function retireParentSession\(/.test(src));
   ok("5j fork 成功后归档父会话", src.indexOf("await retireParentSession(ctx, sessionId)") > src.indexOf("if (childId)"));
+  const clearedBlock = src.slice(src.indexOf("if (cleared) {"));
+  const clearedBody = clearedBlock.slice(0, clearedBlock.indexOf("\n  }"));
+  ok("5j2 原地折叠那条路径不调归档", clearedBody.includes("archived: false") && !clearedBody.includes("retireParentSession"), `block ${clearedBody.length} 字符`);
   ok("5k 归档优先走 registry 的位置参数", /registry\.archiveSession\(sessionId, \{ stopActivity: true \}\)/.test(src));
   ok("5k2 归档兼容 controller 的请求对象", /controller\.archiveSession\(\{ sessionId, stopActivity: true \}\)/.test(src));
   ok("5k3 先试 workspaceRegistry", src.indexOf('service(ctx, "workspaceRegistry")') < src.indexOf('service(ctx, "workspaceController")'));

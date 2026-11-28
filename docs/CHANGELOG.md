@@ -1,3 +1,46 @@
+## v1.2.18 — 2026-11-28
+
+1.2.14~1.2.17 走错了路。回退原本不需要新建会话，是 **0.2.3 把两条前端补丁锚点压没了**才被迫 fork，然后又为了「不让列表变长」去归档父会话，越修越偏。
+
+**最初版本怎么做的**
+
+留在当前会话，打 `surfaceOp: { op: "replace", startSeq, endSeq }`。宿主用它折叠模型历史，屏幕靠两条前端补丁藏气泡：
+
+- **#56** `REWIND_HIDE_CUT_ONLY` —— 按 `surfaceOp` 范围隐藏气泡
+- **#77** `REWIND_DROP_SENT_ON_APPEND` —— 回退标记到达时重建窗口
+
+**它们为什么失效**
+
+`lib/compat-0.2.3.js:86`：
+
+```js
+export const RETIRED_023_IDS = new Set([56, 77]);
+```
+
+`dsh-client-ui-conversation/lib/client.js` 在 0.2.3 变成 685 KB / 28 行的压缩包，`rewindVisibleEntries`、`isRewindMarker`、带缩进的 `append(record) {` 全部不存在，按 mangle 后的短名重新锚定被判断为「下次压缩换名就静默失效，不如摘掉」。
+
+结果：模型历史清了，屏幕一条不少 → 「点回退什么都没发生」→ 1.2.14 改用 fork → 每次多一个会话。
+
+**改法：按压缩后的短名重新锚定**
+
+三个锚点在真机上仍然唯一（`split().length - 1 === 1` 逐条验证）：
+
+| 补丁 | 锚点 | 作用 |
+|---|---|---|
+| **#141** `REWIND_ASSEMBLER_REMEMBER` | `var ConversationNodeAssembler=class{eventDefinitions;viewDefinitions;` | 加 `rewoundSeqs` 与 `rewindsOf(entries)`，扫出 `rewind-` 开头的 replace 标记覆盖的序号并过滤条目 |
+| **#142** `REWIND_ASSEMBLER_FILTER_WINDOW` | `this.hasMore=hasMore;const sorted=[...entries].sort(` | 整窗重建走 `rewindsOf` |
+| **#143** `REWIND_ASSEMBLER_APPEND_REBUILD` | `append(record){...if(this.revised.size>0)this.revised.clear();` | 标记到达即 `replaceWindow(...)` |
+
+`doRewindOneSession` 顺序调回来：先 `clearModelHistory`，`cleared` 就直接返回（`forked: false` / `archived: false`），折叠不成才 fork。
+
+**验证**
+
+真机 dry-run：三条各自唯一、二次应用无变化；685,459 → 686,160 字节；`vm.Script` 解析通过；`rewindsOf` 出现 3 次。`applyPatches` 全表 134 条 → `{applied 119, na 15}`，#141/#142/#143 全部 `applied`。
+
+`tests/verify-rc218.mjs` 36 → **42 项**，第 3 组重写为「原地折叠优先」（`3a`~`3h`），第 4 组专测「折叠失败才 fork」（`4a`~`4i`）。
+
+全量 11 组 **861 项 0 失败**。
+
 ## v1.2.17 — 2026-11-28
 
 1.2.16 的归档**每次都静默失败**，所以「回退一次多一个会话」根本没修好。
