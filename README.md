@@ -1,12 +1,12 @@
-# dsh-purge-022 1.2.18 — DeepSeek Harness 0.2.2 适配分支
+# dsh-purge-022 1.2.19 — DeepSeek Harness 0.2.2 适配分支
 
 [![DSH target](https://img.shields.io/badge/DeepSeek%20Harness-0.2.2--rc.5-4f46e5)](https://github.com/Luckinchan7/dsh-purge-022)
-[![version](https://img.shields.io/badge/version-1.2.18-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.18)
+[![version](https://img.shields.io/badge/version-1.2.19-16a34a)](https://github.com/Luckinchan7/dsh-purge-022/releases/tag/v1.2.19)
 [![patches](https://img.shields.io/badge/patches-131%20in%20table-0ea5e9)](docs/COMPAT-0.2.2.md)
 [![license](https://img.shields.io/badge/license-MIT-a3a3a3)](LICENSE)
 [![base](https://img.shields.io/badge/base-1.1.71--rc2.1-6b7280)](https://github.com/evan545295555-hash/Evans-repo)
 
-[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.18 发行说明](docs/releases/RELEASE-NOTES-1.2.18.md) · [1.2.15](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
+[中文](#中文) · [English](#english) · [变更日志](docs/CHANGELOG.md) · [适配说明](docs/COMPAT-0.2.2.md) · [1.2.19 发行说明](docs/releases/RELEASE-NOTES-1.2.19.md) · [1.2.18](docs/releases/RELEASE-NOTES-1.2.18.md) · [1.2.15](docs/releases/RELEASE-NOTES-1.2.15.md) · [1.2.14](docs/releases/RELEASE-NOTES-1.2.14.md) · [1.2.13](docs/releases/RELEASE-NOTES-1.2.13.md) · [1.2.12](docs/releases/RELEASE-NOTES-1.2.12.md) · [1.2.11](docs/releases/RELEASE-NOTES-1.2.11.md) · [1.2.10](docs/releases/RELEASE-NOTES-1.2.10.md) · [1.2.9](docs/releases/RELEASE-NOTES-1.2.9.md) · [1.2.8](docs/releases/RELEASE-NOTES-1.2.8.md) · [1.2.7](docs/releases/RELEASE-NOTES-1.2.7.md)
 
 > **更新源**：`Luckinchan7/dsh-purge-022`，仓库与 Release 均已上线可用。
 > 原 `devin667` 账号被 GitHub 停用（仓库与 Release 全部对外 404），项目已整体迁到新账号，
@@ -27,11 +27,37 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **0.2.2-rc.5** | **本版（1.2.18）** |
+| **0.2.2-rc.5** | **本版（1.2.19）** |
 | 0.2.2-rc.3 / rc.1 | 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 补丁层用「只追加、不替换」的兼容策略：新锚点追加到已有 `replacements` 末尾，老宿主先命中老锚点、新锚点静默跳过，所以**同一份包在几个 rc 上行为一致**。
+
+<a id="1219-what"></a>
+
+### 1.2.19 修了什么：设置页的版本下拉在深色下能看清
+
+设置 → dsh-purge，「正式版」那个下拉点开是一片白底，字几乎看不见；切浅色主题就正常。
+
+同一个下拉，面板里对、设置页里坏，因为 **CSS 作用域不是一个**：
+
+- 面板里所有下拉都在 `.dshp-dock` 底下，规则是 `.dshp-dock[data-theme="dusk"] select.dshp-field option{...}`。
+- 设置页是 1.2.12 加的入口，容器只有 `.dshp-root dshp-settings-section`，**没有 `.dshp-dock`** —— 那条规则一个字都不命中。
+- `<option>` 在 Chromium 里由系统画，不继承父级 `background`。没显式规则时落到浏览器默认白底，而 `color` 从 `.dshp-root` 承了主题色（深色下近白）→ 白底白字。
+- `select` 写了 `color-scheme:inherit`，从 `body` 拿不到 `dark`，原生弹层也不会自己变深。
+
+1.2.19 把规则改挂到 `.dshp-root[data-theme]` 上，并补 `color-scheme:dark`：
+
+| 主题 | option 背景 | option 文字 |
+|---|---|---|
+| 深色（dusk） | `#1b1d22` | `#f4f1ea` |
+| 浅色（white） | `#fff` | `#16140f` |
+
+设置页里另外三个下拉（工具策略、规则选择器）同一个毛病，一并修了。
+
+改的只是 CSS，不动逻辑，装完不用重启客户端。
+
+详见 [1.2.19 发行说明](docs/releases/RELEASE-NOTES-1.2.19.md)。
 
 <a id="1218-what"></a>
 
@@ -443,7 +469,7 @@ app.asar  →  app  →  default_app.asar
 | `written_not_live` | 已写入，要完全退出客户端才生效（守卫已排上时写「守卫在等客户端退出后自动切换」） |
 | `no_asar` | 非桌面 / 还没定位到 asar |
 
-**升级后怎么生效**：装 1.2.18 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
+**升级后怎么生效**：装 1.2.19 → 面板点「应用」→ **完全退出** DeepSeek Harness（窗口关掉不够，托盘也要退）→ 守卫挪走 asar 并自己把客户端拉起来 → 这次加载的是 `resources/app`。不想等就点「重启」，走强退路径立刻换包，守卫作为兜底留着。回滚只需把 `resources/app.asar.bak` 改回 `app.asar`。
 
 ### 1.2.0：可查更新 + 一键升级（包名改为 dsh-purge-022）
 
@@ -486,7 +512,7 @@ ok:true  hasUpdate:false  repo: nodejs/node  override:true  remoteUnreadable:fal
 迁到 `Luckinchan7` 之后，默认源直接可用：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.18  remoteVersion: 1.2.18  via:git
+ok:true  hasUpdate:false  localVersion: 1.2.19  remoteVersion: 1.2.19  via:git
 repo:  Luckinchan7/dsh-purge-022  override:false
 ```
 
@@ -518,7 +544,7 @@ repo:  Luckinchan7/dsh-purge-022  override:false
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.19/dsh-purge-022-1.2.19.tgz
 ```
 
 本地文件同理：
@@ -526,7 +552,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"
 npm install --prefix $p --save --ignore-scripts `
-  "$p\.local-packages\dsh-purge-022-1.2.18.tgz"
+  "$p\.local-packages\dsh-purge-022-1.2.19.tgz"
 ```
 
 **方式二：面板一键升级**。已经装过 1.2.x 的，打开插件面板 →「重新检查」→「更新」。
@@ -594,6 +620,7 @@ verify-rc216          64 passed    更新源 / 假报已最新 / 两种包名 / 
 
 ### 文档
 
+- [1.2.19 发行说明](docs/releases/RELEASE-NOTES-1.2.19.md) —— 设置页的版本下拉在深色下能看清
 - [1.2.18 发行说明](docs/releases/RELEASE-NOTES-1.2.18.md) —— 回退不再往会话列表里加东西
 - [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md) —— 第一次尝试归档（签名调错，未生效）
 - [1.2.12 发行说明](docs/releases/RELEASE-NOTES-1.2.12.md) —— 设置页里的面板入口
@@ -627,6 +654,32 @@ Same patch ids, same order, same display groups, same config keys as upstream.
 | 0.2.1 series | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 
 The compat layer is **append-only**: new anchors go to the end of the existing `replacements` array. On an older host the original anchor matches first and the new ones are skipped silently — one package behaves identically across rc releases.
+
+<a id="1219-what"></a>
+
+### 1.2.19 fixes: the settings-page version dropdown is readable in dark mode
+
+Settings → dsh-purge, opening the "stable" version dropdown gave a white plate with almost invisible text; switching to the light theme fixed it.
+
+Same dropdown, correct in the panel, broken on the settings page — because the **CSS scopes differ**:
+
+- Every dropdown inside the panel sits under `.dshp-dock`, where `.dshp-dock[data-theme="dusk"] select.dshp-field option{...}` applies.
+- The settings page (added in 1.2.12) lives under `.dshp-root dshp-settings-section` and has **no `.dshp-dock`** — that rule never matches.
+- Chromium draws `<option>` itself and it does not inherit `background`. With no explicit rule it falls back to the browser default white, while `color` is inherited from `.dshp-root` (near-white in dark mode) → white on white.
+- `select` declares `color-scheme:inherit`, and `body` never says `dark`, so the native popup does not darken itself either.
+
+1.2.19 re-anchors the rules on `.dshp-root[data-theme]` and adds `color-scheme:dark`:
+
+| Theme | option background | option text |
+|---|---|---|
+| dusk | `#1b1d22` | `#f4f1ea` |
+| white | `#fff` | `#16140f` |
+
+Three other dropdowns on the settings page (tool policy, rule pickers) had the same defect and are fixed too.
+
+CSS only, no logic change — no client restart needed.
+
+See [the 1.2.19 release notes](docs/releases/RELEASE-NOTES-1.2.19.md).
 
 <a id="1218-what"></a>
 
@@ -938,7 +991,7 @@ The panel now separates the two states instead of reporting only "written":
 | `written_not_live` | Written — quit the app fully to take effect (or: guard is waiting for the app to quit, then swaps) |
 | `no_asar` | Not the desktop app / asar not located |
 
-**To take effect:** install 1.2.18 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
+**To take effect:** install 1.2.19 → click Apply → **fully quit** DeepSeek Harness (closing the window is not enough, quit from the tray too) → the guard moves the asar and relaunches → this boot loads `resources/app`. Clicking Restart forces the swap immediately, with the guard still standing by. Rollback is just renaming `resources/app.asar.bak` back to `app.asar`.
 
 ### 1.2.0: in-panel update check (package renamed to dsh-purge-022)
 
@@ -975,7 +1028,7 @@ After the move to the new account the same call against the default source retur
 
 ```
 ok:true  hasUpdate:false  remoteUnreadable:false
-localVersion: 1.2.18   remoteVersion: 1.2.18   via: "git"
+localVersion: 1.2.19   remoteVersion: 1.2.19   via: "git"
 localSha: 00ca3f4     remoteSha: 00ca3f4
 ```
 
@@ -1000,7 +1053,7 @@ Patch ids, order, display groups and config keys are unchanged. **90 entries in 
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.19/dsh-purge-022-1.2.19.tgz
 ```
 
 Or, if already on 1.2.x: plugin panel → Check again → Update. The update source defaults to

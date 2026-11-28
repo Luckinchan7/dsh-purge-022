@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.18</strong></p>
+<p align="center"><strong>Version 1.2.19</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.19 修了什么](#1219-修了什么设置页的版本下拉在深色下能看清)
 - [1.2.18 修了什么](#1218-修了什么回退不再新建会话)
 - [1.2.15 修了什么](#1215-修了什么shim-的-cmd-红点是误报)
 - [1.2.14 修了什么](#1214-修了什么回退终于能用了)
@@ -111,7 +112,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.18）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.19）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -121,6 +122,43 @@
 对不上的补丁会显示待应用或跳过，不会乱改文件。
 
 ---
+
+<a id="1219-what"></a>
+
+## 1.2.19 修了什么：设置页的版本下拉在深色下能看清
+
+设置 → dsh-purge，「正式版」那个下拉点开是一片白底，里面那行 `v1.2.18 · 当前` 只剩一点灰影，得凑近才认得出。切浅色主题就正常。
+
+同一个下拉，面板里对、设置页里坏，因为 **CSS 作用域不是一个**：
+
+- 面板（右下角那个悬浮窗）里所有下拉都在 `.dshp-dock` 底下，规则是 `.dshp-dock[data-theme="dusk"] select.dshp-field option{...}`。
+- 设置页是 1.2.12 加的入口，`PurgeSettingsSection` 挂在 `settings.section`，容器只有 `.dshp-root dshp-settings-section`，**没有 `.dshp-dock`** —— 那条规则一个字都不命中。
+- `<option>` 在 Chromium 里由系统渲染，不继承父级 `background`。没有显式规则时落到浏览器默认的白底，而 `color` 从 `.dshp-root` 承了主题色（深色下 `#f4f1ea`，近白）→ 白底白字。
+- `select` 自己写了 `color-scheme:inherit`，从 `body` 拿不到 `dark`，原生弹层也不会自己变深。
+
+1.2.19 把规则改挂到 `.dshp-root[data-theme]` 上，并补 `color-scheme:dark`：
+
+```css
+.dshp-root[data-theme="dusk"] select.dshp-field,
+.dshp-root[data-theme="dusk"] select.dshp-ver{color-scheme:dark}
+.dshp-root[data-theme="dusk"] select.dshp-field option,
+.dshp-root[data-theme="dusk"] select.dshp-ver option,
+.dshp-root[data-theme="dusk"] .dshp-field.dshp-ver option{background:#1b1d22;color:#f4f1ea}
+.dshp-root[data-theme="white"] select.dshp-field option,
+.dshp-root[data-theme="white"] select.dshp-ver option,
+.dshp-root[data-theme="white"] .dshp-field.dshp-ver option{background:#fff;color:#16140f}
+```
+
+| 主题 | option 背景 | option 文字 |
+|---|---|---|
+| 深色 | `#1b1d22` | `#f4f1ea` |
+| 浅色 | `#fff` | `#16140f` |
+
+设置页里另外三个下拉（工具策略、规则选择器，都带 `dshp-field`）同一个毛病，一并修了。
+
+改的只是 CSS，不动逻辑。装完不用重启客户端，重开一次设置页就生效。
+
+详见 [1.2.19 发行说明](docs/releases/RELEASE-NOTES-1.2.19.md)。
 
 <a id="1218-what"></a>
 
@@ -788,7 +826,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.19/dsh-purge-022-1.2.19.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -796,7 +834,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.18/dsh-purge-022-1.2.18.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.19/dsh-purge-022-1.2.19.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -808,7 +846,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.18  remoteVersion: 1.2.18
+ok:true  hasUpdate:false  localVersion: 1.2.19  remoteVersion: 1.2.19
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

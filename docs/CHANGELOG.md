@@ -1,3 +1,31 @@
+## v1.2.19 — 2026-11-29
+
+设置 → dsh-purge 里「正式版 / 测试版」那个版本下拉，展开后是一片白底，字几乎看不见；切成浅色主题才正常。
+
+**原因**：面板和设置页里同一个下拉，CSS 作用域不是一个。
+
+- 面板（悬浮窗）里所有下拉都在 `.dshp-dock` 底下，规则有 `.dshp-dock[data-theme="dusk"] select.dshp-field option{background:#1b1d22;color:#f4f1ea}`，深色下是对的。
+- 设置页是 `PurgeSettingsSection` 挂 `settings.section`，容器只有 `.dshp-root dshp-settings-section`，**没有 `.dshp-dock`**，所以那条规则一条都不命中。
+- `<option>` 在 Chromium 里由系统渲染，不继承父级 `background`。没有显式规则时它落到浏览器默认的白底，而 `color` 却从 `.dshp-root` 承了主题色（深色主题下是 `#f4f1ea` 近白）→ 白底 + 白字。
+- `select` 本身写了 `color-scheme:inherit`，从 `body` 拿不到 `dark`，所以原生弹层也不会自动变深。
+
+**改动**（`client.js`，只加 CSS，不动逻辑）：
+
+```css
+.dshp-root[data-theme="dusk"] select.dshp-field,
+.dshp-root[data-theme="dusk"] select.dshp-ver{color-scheme:dark}
+.dshp-root[data-theme="dusk"] select.dshp-field option,
+.dshp-root[data-theme="dusk"] select.dshp-ver option,
+.dshp-root[data-theme="dusk"] .dshp-field.dshp-ver option{background:#1b1d22;color:#f4f1ea}
+.dshp-root[data-theme="white"] select.dshp-field option,
+.dshp-root[data-theme="white"] select.dshp-ver option,
+.dshp-root[data-theme="white"] .dshp-field.dshp-ver option{background:#fff;color:#16140f}
+```
+
+一并覆盖设置页里另外三个下拉（`dshp-policy-select` 等，都带 `dshp-field`），它们有同样的毛病。
+
+**测试**：`tests/verify-rc217.mjs` 新增「5i」组 6 项 —— 规则存在、dusk 下深底浅字、white 下白底深字、dusk 下 `color-scheme:dark`、版本下拉仍带 `dshp-field dshp-ver`、规则不只挂在 `.dshp-dock` 上。`verify-rc217` 586 → 592。全量 10 组 **854 项 0 失败**（migration-yaml 8 / migration 21 / rc120 22 / rc213 26 / rc214 6 / rc2142 9 / rc215 64 / rc216 64 / rc217 592 / rc218 42）。
+
 ## v1.2.18 — 2026-11-28
 
 1.2.14~1.2.17 走错了路。回退原本不需要新建会话，是 **0.2.3 把两条前端补丁锚点压没了**才被迫 fork，然后又为了「不让列表变长」去归档父会话，越修越偏。

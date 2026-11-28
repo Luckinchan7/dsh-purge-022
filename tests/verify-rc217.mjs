@@ -270,6 +270,17 @@ if (yml && fs.existsSync(yml)) {
   ok("TabRow 锚点优先 tablist", /row\.querySelector\("\[role='tablist'\]"\) \|\| row/.test(clientSrc));
 }
 
+// ── 5i. 设置页的下拉在深色主题下也要能看清 ──────────────────
+{
+  const clientSrc = fs.readFileSync(path.join(root, "client.js"), "utf8");
+  ok("下拉有主题感知的 option 规则", clientSrc.includes("[dsh-purge-dropdown]"));
+  ok("dusk 下 option 是深底浅字", /\.dshp-root\[data-theme="dusk"\] select\.dshp-field option[^{]*\{background:#1b1d22;color:#f4f1ea\}/.test(clientSrc));
+  ok("white 下 option 是白底深字", /\.dshp-root\[data-theme="white"\] select\.dshp-field option[^{]*\{background:#fff;color:#16140f\}/.test(clientSrc));
+  ok("dusk 下 select 声明 color-scheme:dark", /\.dshp-root\[data-theme="dusk"\] select\.dshp-field[^{]*\{color-scheme:dark\}/.test(clientSrc));
+  ok("设置页版本下拉仍带 dshp-field dshp-ver", clientSrc.includes('className: "dshp-field dshp-ver"'));
+  ok("dusk 规则不只挂在 .dshp-dock 上", /\.dshp-root\[data-theme="dusk"\] \.dshp-field\.dshp-ver option/.test(clientSrc));
+}
+
 // ── 6. 产物与合计 ────────────────────────────────────────────
 ok("ALL_PATCHES 含全部限额补丁", LIMIT_PATCHES.every((p) => core.ALL_PATCHES.some((q) => q.id === p.id)));
 ok("ALL_PATCHES id 总量", new Set(core.ALL_PATCHES.map((p) => p.id)).size === core.ALL_PATCHES.length, `共 ${core.ALL_PATCHES.length} 条`);
