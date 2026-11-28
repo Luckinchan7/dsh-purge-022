@@ -1,3 +1,53 @@
+## v1.2.17 — 2026-11-28
+
+1.2.16 的归档**每次都静默失败**，所以「回退一次多一个会话」根本没修好。
+
+**根因**
+
+两个入口的签名我看反了：
+
+```js
+// dsh-workspace/lib/types/index.js —— 位置参数
+archiveSession(sessionId, options = {})
+
+// dsh-api-workspace-controller/lib/index.js —— 请求对象
+async archiveSession(request)
+```
+
+1.2.16 调的是 controller 却按位置参数传：`archiveSession(sessionId, { stopActivity: true })`。于是 `request` 是字符串，`request.sessionId` 是 `undefined`，注册表以 `WorkspaceUnknownSessionError` 拒绝 —— 被 `catch { return false }` 吞掉，回退照样报成功，父会话一条没动。
+
+**改法**
+
+不再靠「调用没抛异常」当成功。逐个形态试，每试一次就**回读 `archivedSessionIds` 确认**：
+
+```js
+const isArchived = () => {
+  const list = service(ctx, "workspaceRegistry")?.archivedSessionIds;
+  return Array.isArray(list) && list.includes(sessionId);
+};
+```
+
+试的顺序：`registry.archiveSession(id, opts)` → `registry.archiveSession({ id, opts })` → `controller.archiveSession({ id, opts })` → `controller.archiveSession(id, opts)`。任一形态让 `isArchived()` 变真就返回。
+
+**为什么之前测不出来**
+
+离线测试里的 mock 是我按自己的错误理解写的 —— 因为当时我以为 controller 收位置参数，mock 就照着错的样子放行，测试因此全绿。现在 mock 照抄真实签名：registry 收位置参数且真的把 id 加进 `archivedSessionIds`，controller 收请求对象、收到字符串就抛。
+
+**验证**
+
+真机证据（两次回退各留一个父会话，两个都没进归档）：
+
+```
+parent d8022bf3  events 596   archived: false
+child  3e5dba53  events 476   archived: false   ← 前 474 条与父会话逐条相同
+```
+
+前 474 条逐条相同的两段序列，就是 fork 留下的父子对。
+
+`tests/verify-rc218.mjs` 现在 36 项，新增：先试 registry、兼容 controller 的请求对象、回读确认。
+
+全量 10 组 **844 项 0 失败**。
+
 ## v1.2.16 — 2026-11-28
 
 回退一次，会话列表就多一条。

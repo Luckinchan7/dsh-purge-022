@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.16</strong></p>
+<p align="center"><strong>Version 1.2.17</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,7 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
-- [1.2.16 修了什么](#1216-修了什么回退不再往会话列表里加东西)
+- [1.2.17 修了什么](#1217-修了什么回退不再往会话列表里加东西)
 - [1.2.15 修了什么](#1215-修了什么shim-的-cmd-红点是误报)
 - [1.2.14 修了什么](#1214-修了什么回退终于能用了)
 - [1.2.13 修了什么](#1213-修了什么挂件不再压住)
@@ -111,7 +111,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.16）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.17）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -122,23 +122,43 @@
 
 ---
 
-<a id="1216-what"></a>
+<a id="1217-what"></a>
 
-## 1.2.16 修了什么：回退不再往会话列表里加东西
+## 1.2.17 修了什么：回退不再往会话列表里加东西
 
-1.2.14 把回退改成 `fork` 一个截断的子会话（客户端不认 `surfaceOp: replace`）。但 `fork` 必然新建会话，父会话默认还留在列表里，每回退一次净增一条。
+1.2.14 把回退改成 `fork` 一个截断的子会话（客户端不认 `surfaceOp: replace`）。但 `fork` 必然新建会话，父会话默认还留在列表里 —— 每回退一次净增一条。
 
-改法：fork 成功后调 `workspaceController.archiveSession(sessionId, { stopActivity: true })` 把父会话收进归档 —— 历史不删、随时能反归档找回，只是不再占列表。
+1.2.16 想把父会话归档，但**每次都调错了签名**：
 
-`stopActivity: true` 必须带：不带的话宿主会先查 `workspace/session-activity`，那一轮还在跑就抛 `WorkspaceActiveSessionError`。归档失败不抛，回退本身已经成功了。
+```js
+// dsh-workspace/lib/types/index.js —— 位置参数
+archiveSession(sessionId, options = {})
+
+// dsh-api-workspace-controller/lib/index.js —— 请求对象
+async archiveSession(request)
+```
+
+它调的是 controller 却按位置参数传，于是 `request.sessionId` 是 `undefined`，注册表以 `WorkspaceUnknownSessionError` 拒绝，被 `catch { return false }` 吞掉。回退照样报成功，父会话一条没动。
+
+1.2.17 不再靠「调用没抛异常」当成功，逐个形态试、每次都**回读 `archivedSessionIds` 确认**：
+
+```js
+const isArchived = () => {
+  const list = service(ctx, "workspaceRegistry")?.archivedSessionIds;
+  return Array.isArray(list) && list.includes(sessionId);
+};
+```
+
+顺序：`registry(id, opts)` → `registry({sessionId, opts})` → `controller({sessionId, opts})` → `controller(id, opts)`。
+
+真机证据（两个父会话都没进归档）：
 
 ```
-回退1: sid c1, archived true, 归档集合 [p1]
-回退2: sid c2, archived true, 归档集合 [p1, c1]
-会话总数 3，已归档 2 → 列表净增 0
+parent d8022bf3   events 596   archived: false
+child  3e5dba53   events 476   archived: false   ← 前 474 条与父会话逐条相同
 ```
 
-详见 [1.2.16 发行说明](docs/releases/RELEASE-NOTES-1.2.16.md)。
+详见 [1.2.17 发行说明](docs/releases/RELEASE-NOTES-1.2.17.md)。
 
 <a id="1215-what"></a>
 
@@ -781,7 +801,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.17/dsh-purge-022-1.2.17.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -789,7 +809,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.16/dsh-purge-022-1.2.16.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.17/dsh-purge-022-1.2.17.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -801,7 +821,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.16  remoteVersion: 1.2.16
+ok:true  hasUpdate:false  localVersion: 1.2.17  remoteVersion: 1.2.17
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

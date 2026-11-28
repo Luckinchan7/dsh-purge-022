@@ -103,8 +103,23 @@ function buildSession(id = "s1") {
     sessions: { get: (id) => (id === "fork-src" ? s : children.get(id)) },
     get(name) { return this[name]; },
     agents: { get: () => null },
+    workspaceRegistry: {
+      /* 真实注册表是位置参数：archiveSession(sessionId, options)，
+         并且真的会把 id 加进 archivedSessionIds —— 插件靠回读这个数组确认成功。 */
+      get archivedSessionIds() { return [...archivedSet]; },
+      async archiveSession(id, opts) {
+        if (typeof id !== "string" || !id) throw new Error("WorkspaceUnknownSessionError");
+        archivedSet.add(id);
+        return undefined;
+      },
+    },
     workspaceController: {
-      async archiveSession(id) { archivedSet.add(id); return { archivedSessionIds: [...archivedSet] }; },
+      /* 真实 controller 收请求对象，收位置参数会静默失败。 */
+      async archiveSession(request) {
+        if (!request || typeof request.sessionId !== "string") throw new Error("WorkspaceUnknownSessionError");
+        archivedSet.add(request.sessionId);
+        return { archivedSessionIds: [...archivedSet] };
+      },
     },
     sessionController: {
       cancel() {},
@@ -159,7 +174,9 @@ function buildSession(id = "s1") {
   ok("5f 挑边界时优先 turn/end", /event\?\.type === "turn\/end"/.test(src));
   ok("5i 存在 retireParentSession", /async function retireParentSession\(/.test(src));
   ok("5j fork 成功后归档父会话", src.indexOf("await retireParentSession(ctx, sessionId)") > src.indexOf("if (childId)"));
-  ok("5k 归档带 stopActivity", /archiveSession\(sessionId, \{ stopActivity: true \}\)/.test(src));
+  ok("5k 归档优先走 registry 的位置参数", /registry\.archiveSession\(sessionId, \{ stopActivity: true \}\)/.test(src));
+  ok("5k2 归档兼容 controller 的请求对象", /controller\.archiveSession\(\{ sessionId, stopActivity: true \}\)/.test(src));
+  ok("5k3 先试 workspaceRegistry", src.indexOf('service(ctx, "workspaceRegistry")') < src.indexOf('service(ctx, "workspaceController")'));
   ok("5l 结果里的 archived 反映归档结果", /archived: parentArchived/.test(src));
   const client = fs.readFileSync(path.join(root, "client.js"), "utf8");
   ok("5g 客户端换会话后刷新列表", /sessions\.refresh/.test(client));
