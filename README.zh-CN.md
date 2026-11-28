@@ -4,7 +4,7 @@
 
 <h1 align="center">⚔️ DeepSeek Harness 网络安全红队工具（dsh-purge-022）</h1>
 
-<p align="center"><strong>Version 1.2.14</strong></p>
+<p align="center"><strong>Version 1.2.15</strong></p>
 
 <p align="center">
   <em>DeepSeek Harness 破甲：让所有模型都能破甲，不同模型可换不同提示词；默认提示词面向国模「小码酱」。Jailbreak for every model — swap prompts per model. 求 Star 收藏 ⭐ 如要二开，请查看署名要求部分</em>
@@ -38,6 +38,7 @@
 - [介绍](#介绍)
 - [署名要求](#署名要求)
 - [适配范围](#适配范围)
+- [1.2.15 修了什么](#1215-修了什么shim-的-cmd-红点是误报)
 - [1.2.14 修了什么](#1214-修了什么回退终于能用了)
 - [1.2.13 修了什么](#1213-修了什么挂件不再压住)
 - [1.2.12 修了什么](#1212-修了什么关掉悬浮按钮还有设置页)
@@ -109,7 +110,7 @@
 
 | 宿主 | 推荐版本 |
 |---|---|
-| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.14）** |
+| **DeepSeek Harness 0.2.2-rc.5** | **本版（1.2.15）** |
 | 0.2.2-rc.3 / 0.2.2-rc.1 | 1.2.2 / 1.2.1（向后兼容） |
 | 0.2.1 系列 | [1.1.71-rc2.1](https://github.com/evan545295555-hash/Evans-repo) |
 | dsh 0.1.x | 不支持，请用上游更早的版本 |
@@ -120,9 +121,30 @@
 
 ---
 
+<a id="1215-what"></a>
+
+## 1.2.15 修了什么：shim 的 cmd 红点是误报
+
+面板 shim 那一格里 `cmd` 一直是红点，但那个文件没问题 —— 是读数读错了。
+
+`isTextShim()` 用 `fs.openSync` + `fs.readSync` 读文件头，但这里的 `fs` 是 `lib/extract-asar.js:158` 的 `hostFs` 包装层，只代理了 `openSync`：`readSync` / `closeSync` 都是 `undefined`。一调就抛 `TypeError`，被 `catch { return false }` 吃掉 —— 每一个 shim 都被判成 `binary`，圆点变红。
+
+**不只是颜色。** `lib/core.js:8136` 的 shim 注入遇到同一判断会走 `skipped_binary` 并 `continue`，这一整支在真机上从来没跑过。
+
+改法：三处 `fs.` 换成 `nodeFs.`。真机复测：
+
+```
+dsh.cmd -> original    （之前 binary）
+dsh.ps1 -> missing
+dsh     -> missing
+```
+
+详见 [1.2.15 发行说明](docs/releases/RELEASE-NOTES-1.2.15.md)。
+
 <a id="1214-what"></a>
 
 ## 1.2.14 修了什么：回退终于能用了
+
 
 点「回退」有菜单、有请求、有成功提示，历史一个字不变。两个叠加的缺陷：
 
@@ -739,7 +761,7 @@ app.asar  →  app  →  default_app.asar
 
 ```bash
 dsh plugin --profile desktop add --ignore-scripts \
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.14/dsh-purge-022-1.2.14.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
 ```
 
 `dsh` 不在 PATH、或想直接落到 profile：
@@ -747,7 +769,7 @@ dsh plugin --profile desktop add --ignore-scripts \
 ```powershell
 $p = "$env:USERPROFILE\.dsh\profiles\desktop"   # web 端改成 profiles\web
 npm install --prefix $p --save --ignore-scripts `
-  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.14/dsh-purge-022-1.2.14.tgz
+  https://github.com/Luckinchan7/dsh-purge-022/releases/download/v1.2.15/dsh-purge-022-1.2.15.tgz
 node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 ```
 
@@ -759,7 +781,7 @@ node "$p\node_modules\dsh-purge-022\scripts\ensure-profile-bundle.mjs"
 实测更新检查：
 
 ```
-ok:true  hasUpdate:false  localVersion: 1.2.14  remoteVersion: 1.2.14
+ok:true  hasUpdate:false  localVersion: 1.2.15  remoteVersion: 1.2.15
 repo:  Luckinchan7/dsh-purge-022  override:false  via:git
 ```
 

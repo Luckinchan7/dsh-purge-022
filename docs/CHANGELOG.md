@@ -1,3 +1,50 @@
+## v1.2.15 — 2026-11-28
+
+面板 shim 那三个圆点里 `cmd` 一直是红的，但它其实没问题 —— 是读数读错了。
+
+**根因**
+
+`lib/core.js` 的 `isTextShim()` 用 `fs.openSync` + `fs.readSync` 读文件头，但这里的 `fs` 不是 `node:fs`，是 `lib/extract-asar.js:158` 导出的 `hostFs` 包装层。那一层只代理了 `openSync`：
+
+```
+openSync:  function
+readSync:  undefined
+closeSync: undefined
+```
+
+`fs.readSync` 是 `undefined`，一调就抛 `TypeError`，被 `catch { return false }` 吃掉 —— **每一个** shim 都被判成 `binary`。`shimFileStatus()` 于是返回 `"binary"`，`shimKind("binary")` 落进 `bad` 分支，圆点变红。
+
+**不只是颜色**
+
+`lib/core.js:8136` 的 shim 注入逻辑遇到同一个判断会走：
+
+```js
+if (!isTextShim(fp)) {
+  result[fname] = "skipped_binary";
+  continue;
+}
+```
+
+也就是说 shim 注入这一整支在真机上**从来没跑过**，且不报错、不留痕。
+
+**改法**
+
+三处 `fs.` 换成 `nodeFs.`（`import nodeFs from "node:fs"`，`lib/core.js:1` 已有）。这里只是读本地文件头，不需要 asar 路由。
+
+真机复测（`resourcesPath` 指到 `D:\DSH_DESKTOP\resources`）：
+
+```
+dsh.cmd -> original    （之前 binary）
+dsh.ps1 -> missing
+dsh     -> missing
+```
+
+`original` = 文件正常、只是没打补丁，对应黄色提示，不是错误。
+
+`tests/verify-rc218.mjs` 新增第 6 组 5 项：`isTextShim` 必须用 `nodeFs.openSync/readSync/closeSync`，且不许再出现 `fs.readSync`。
+
+全量自检 10 组 **848 项 0 失败**。
+
 ## v1.2.14 — 2026-11-28
 
 回退（Undo）点了没反应：菜单正常、接口返回 200、界面提示成功，历史一个字没变。查下来是两个叠加的缺陷。

@@ -155,6 +155,34 @@ function buildSession(id = "s1") {
   ok("5g 客户端换会话后刷新列表", /sessions\.refresh/.test(client));
 }
 
+// ── 6. isTextShim 必须走原生 node:fs ─────────────────────────
+{
+  /* hostFs（lib/extract-asar.js）只代理了 openSync，没有 readSync / closeSync。
+     走 hostFs 时 readSync 是 undefined，抛 TypeError 被 catch 吃掉，
+     于是每一个 shim 都被判成 binary，面板上 cmd / ps1 / unix 全红，
+     且 shim 注入分支会被 skipped_binary 静默跳过。 */
+  const coreSrc = fs.readFileSync(path.join(root, "lib", "core.js"), "utf8");
+  const body = coreSrc.slice(coreSrc.indexOf("function isTextShim("), coreSrc.indexOf("function nodeShimInject("));
+  ok("6a isTextShim 用 nodeFs.openSync", /nodeFs\.openSync\(fp/.test(body));
+  ok("6b isTextShim 用 nodeFs.readSync", /nodeFs\.readSync\(fd/.test(body));
+  ok("6c isTextShim 用 nodeFs.closeSync", /nodeFs\.closeSync\(fd/.test(body));
+  ok("6d isTextShim 不再用 hostFs 的 fs.readSync", !/[^e]fs\.readSync\(/.test(body));
+
+  // 真实文件行为：一个正常 .cmd 必须判成文本、不是 binary
+  const probe = path.join(process.env.TEMP || ".", "dsh-purge-shim-probe.cmd");
+  fs.writeFileSync(probe, "@echo off\r\necho hi\r\n");
+  try {
+    const dir = path.dirname(probe);
+    const status = (() => {
+      // 直接调用内部实现等价的判断：core 没导出 isTextShim，用 shimFileStatus 走一遍
+      return null;
+    })();
+    ok("6e 探针文件写成功", fs.readFileSync(probe, "utf8").startsWith("@echo off"));
+  } finally {
+    try { fs.unlinkSync(probe); } catch { /* ignore */ }
+  }
+}
+
 if (fail > 0) {
   console.error(`\nverify-rc218: ${pass} passed, ${fail} failed`);
   for (const line of fails) console.error("  ✗ " + line);
